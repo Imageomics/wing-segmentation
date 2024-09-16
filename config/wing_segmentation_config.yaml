@@ -1,0 +1,40 @@
+general:
+  data_dir: "/data"            # Host path to the data directory
+  models_dir: "/models"        # Host path to the models directory
+  output_dir: "/output"        # Container path where outputs are stored
+  use_gpu: true                # Flag to indicate if GPU should be used
+
+preprocessing:
+  resize_images: true
+  resize:
+    method: "flat_dir"
+    source_dir: "/data/source_images"
+    output_dir: "/data/resized_images"
+    resize_dim: [256, 256]
+
+segmentation:
+  yolo_model_path: "/models/yolo_detection_8m_shear_10.0.pt"
+  sam_model_path: "/models/sam_vit_l.pth"
+  image_dir: "/data/resized_images"
+  mask_output_csv: "/output/segmentation_info.csv"
+  masks_output_dir: "/output/segmentation_masks"
+
+background_removal:
+  method: "black"
+  images_dir: "/output/segmentation_masks"
+  masks_dir: "/output/segmentation_masks"
+  output_dir: "/output/background_removed"
+
+wing_extraction:
+  images_dir: "/output/background_removed"
+  masks_dir: "/output/segmentation_masks"
+  output_dir: "/output/cropped_wings"
+  padding: 50
+
+postprocessing:
+  wing_sorting:
+    enabled: true
+    input_dir: "/output/cropped_wings"
+  image_flipping:
+    enabled: true
+    input_dir: "/output/sorted_wings"

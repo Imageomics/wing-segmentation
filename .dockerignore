@@ -1,0 +1,12 @@
+.git
+.gitignore
+.venv
+*.ipynb
+*.md
+*.cff
+LICENSE
+deprecated/
+config/
+models/
+data/
+readme_images/
