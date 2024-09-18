@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wing_segmenter"]
+
+[project]
+name = "wing-segmenter"
+version = "0.1.0"
+description = "A CLI tool for Lepidopteran wing preprocessing and segmentation."
+authors = [
+    { name = "Michelle Ramirez", email = "michelleramirez7171@gmail.com" },
+    { name = "Matthew J. Thompson", email = "thompson.m.j@outlook.com"}
+]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "torch==2.1.1",
+    "torchvision",
+    "numpy",
+    "pandas",
+    "opencv-python",
+    "Pillow",
+    "matplotlib",
+    "scikit-image",
+    "scikit-learn",
+    "ultralytics",
+    "tqdm",
+    "huggingface-hub",
+    "pycocotools",
+    "wget",
+    "segment-anything",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.urls]
+Documentation = "https://github.com/Imageomics/wing-segmentation#readme"
+Issues = "https://github.com/Imageomics/wing-segmentation/issues"
+Source = "https://github.com/Imageomics/wing-segmentation/"
+
+[project.scripts]
+ws = "wing_segmenter.__main__:main"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.version]
+path = "src/wing_segmenter/__init__.py"
