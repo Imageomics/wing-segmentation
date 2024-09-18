@@ -161,3 +161,20 @@ python3 wing-segmentation/landmark_scripts/create_wing_folders.py --input_dir /p
 ```
 python3 wing-segmentation/landmark_scripts/flip_images_horizontally.py --input_dir /path/to/wing/category/folder
 ```
+
+# CLI Development
+To use and continue building the CLI features:
+
+1. Set up an environment and install the package.
+```bash
+conda create -n ws -c conda-forge --solver=libmamba python=3.10 uv -y
+```
+```bash
+conda activate ws
+```
+```bash
+uv pip install -e .[dev]
+```
+> Note: [`uv`](https://github.com/astral-sh/uv) is a fast, Rust-based package manager.
+
+
