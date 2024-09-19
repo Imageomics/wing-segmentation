@@ -163,9 +163,42 @@ python3 wing-segmentation/landmark_scripts/flip_images_horizontally.py --input_d
 ```
 
 # CLI Development
+
+```bash
+usage: ws [-h] {resize} ...
+
+Wing Segmenter CLI
+
+options:
+  -h, --help  show this help message and exit
+
+Commands:
+  {resize}
+    resize    Resize images and store them in a structured output directory.
+```
+## Optional preprocessing
+```bash
+usage: ws resize [-h] --source SOURCE [--output OUTPUT] --resize-dim WIDTH HEIGHT [--num-workers NUM_WORKERS]
+                 [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}]
+
+options:
+  -h, --help            show this help message and exit
+  --source SOURCE       Path to source images
+  --output OUTPUT       Base path to output resized images.
+                        Final path will include <WIDTH>x<HEIGHT>/<INTERPOLATION>.
+                        Default: <SOURCE>_resize/<WIDTH>x<HEIGHT>/<INTERPOLATION>, neighboring SOURCE.
+                        If SOURCE has nested directories, the output will mirror the structure.
+  --resize-dim WIDTH HEIGHT
+                        Resize dimensions (WIDTH HEIGHT)
+  --num-workers NUM_WORKERS
+                        Number of parallel workers (default: 1)
+  --interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}
+                        OpenCV interpolation method to use (default: area)
+```
+
 To use and continue building the CLI features:
 
-1. Set up an environment and install the package.
+## Set up an environment and install the package.
 ```bash
 conda create -n ws -c conda-forge --solver=libmamba python=3.10 uv -y
 ```
@@ -176,5 +209,4 @@ conda activate ws
 uv pip install -e .[dev]
 ```
 > Note: [`uv`](https://github.com/astral-sh/uv) is a fast, Rust-based package manager.
-
 
