@@ -1,54 +1,107 @@
 import argparse
-import logging
-import os
-
-logging.basicConfig(level=logging.INFO)
 
 def main():
     parser = argparse.ArgumentParser(
-        prog='ws',
+        prog='wingseg',
         description="Wing Segmenter CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    
+
     subparsers = parser.add_subparsers(title='Commands', dest='command', required=True)
 
-    resize_parser = subparsers.add_parser('resize', help='Resize images and store them in a structured output directory.', formatter_class=argparse.RawTextHelpFormatter)
+    # Subcommand: segment
+    segment_parser = subparsers.add_parser(
+        'segment',
+        help='Segment images and store segmentation masks.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
 
-    resize_parser.add_argument('--source', required=True, help='Path to source images')
-    resize_parser.add_argument('--output',
-                            help='Base path to output resized images.\n'
-                                    'Final path will include <WIDTH>x<HEIGHT>/<INTERPOLATION>.\n'
-                                    'Default: <SOURCE>_resize/<WIDTH>x<HEIGHT>/<INTERPOLATION>, neighboring SOURCE.\n'
-                                    'If SOURCE has nested directories, the output will mirror the structure.')
-    resize_parser.add_argument('--resize-dim', nargs=2, type=int, required=True, metavar=('WIDTH', 'HEIGHT'),
-                               help='Resize dimensions (WIDTH HEIGHT)')
-    resize_parser.add_argument('--num-workers', type=int, default=1,
-                               help='Number of parallel workers (default: 1)')
-    resize_parser.add_argument('--interpolation', choices=['nearest', 'linear', 'cubic', 'area', 'lanczos4', 'linear_exact', 'nearest_exact'],
-                               default='area', 
-                               help='OpenCV interpolation method to use (default: area)')
+    # Required argument
+    segment_parser.add_argument('--dataset', required=True, help='Path to dataset images')
 
-    # TODO: add segmentation command
+    # Resizing options
+    resize_group = segment_parser.add_argument_group('Resizing Options')
 
+    # Dimension specifications
+    resize_group.add_argument('--size', nargs='+', type=int,
+                              help='Target size. Provide one value for square dimensions or two for width and height.')
+
+    # Resizing mode
+    resize_group.add_argument('--resize-mode', choices=['distort', 'pad'], default=None,
+                              help='Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary.')
+
+    # Padding options
+    resize_group.add_argument('--padding-color', choices=['black', 'white'], default='black',
+                              help='Padding color to use when --resize-mode is "pad".')
+
+    # Interpolation options
+    resize_group.add_argument('--interpolation', choices=['nearest', 'linear', 'cubic', 'area', 'lanczos4', 'linear_exact', 'nearest_exact'],
+                              default='area',
+                              help='Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.')
+
+    # General processing options
+    segment_parser.add_argument('--output-dir', default=None, help='Base path to store outputs.')
+    segment_parser.add_argument('--sam-model', default='facebook/sam-vit-base',
+                                help='SAM model to use (e.g., facebook/sam-vit-base)')
+    segment_parser.add_argument('--yolo-model', default='imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt',
+                                help='YOLO model to use (local path or Hugging Face repo).')
+    segment_parser.add_argument('--num-workers', type=int, default=1,
+                                help='Number of worker threads to use for processing.')
+    segment_parser.add_argument('--device', choices=['cpu', 'cuda'], default='cpu',
+                                help='Device to use for processing.')
+    segment_parser.add_argument('--save-intermediates', action='store_true',
+                                help='Save intermediate files (resized images and segmentation masks).')
+    segment_parser.add_argument('--visualize-segmentation', action='store_true',
+                                help='Generate and save segmentation visualizations.')
+    segment_parser.add_argument('--force', action='store_true',
+                                help='Force reprocessing even if outputs already exist.')
+    segment_parser.add_argument('--crop-by-class', action='store_true',
+                                help='Enable cropping of segmented classes into crops/ directory.')
+
+    # CLI Flags for background removal
+    bg_group = segment_parser.add_argument_group('Background Removal Options')
+    bg_group.add_argument('--remove-background', action='store_true', default=False,
+                           help='Remove background from cropped images.')
+    bg_group.add_argument('--background-color', choices=['white', 'black'], default='black',
+                           help='Background color to use when removing background. Applicable only if --remove-background is set.')
+    bg_group.add_argument('--remove-bg-full', action='store_true',
+                           help='Remove background from the entire (resized or original) image.')
+
+    # Subcommand: scan-runs
+    scan_parser = subparsers.add_parser('scan-runs', help='List existing processing runs for a dataset.')
+    scan_parser.add_argument('--dataset', required=True, help='Path to the dataset directory.')
+    scan_parser.add_argument('--output-dir', default=None, help='Base path where outputs were stored.')
+
+    # Parse arguments
     args = parser.parse_args()
 
-    if args.command == 'resize':
-        from wing_segmenter.resize import resize_images
-
-        # Determine output directory based on source directory
-        if not args.output:
-            source_dir_name = os.path.basename(os.path.normpath(args.source))
-            parent_dir = os.path.dirname(os.path.abspath(args.source))
-            base_output_dir = os.path.join(parent_dir, f"{source_dir_name}_resize")
+    # Validation for resizing options
+    if args.command == 'segment':
+        # If size is provided, enforce resizing options
+        if args.size:
+            if len(args.size) not in [1, 2]:
+                parser.error('--size must accept either one value (square resize) or two values (width and height).')
+            if not args.resize_mode:
+                parser.error('--resize-mode must be specified when --size is provided.')
+            if args.resize_mode == 'pad' and args.padding_color is None:
+                args.padding_color = 'black'
+        # If no size is provided, ensure that resizing options were not explicitly set
         else:
-            # Custom output path specified by user
-            base_output_dir = args.output
-        
-        # Append <WIDTH>x<HEIGHT>/<INTERPOLATION> to the output path
-        args.output = os.path.join(base_output_dir, f'{args.resize_dim[0]}x{args.resize_dim[1]}', args.interpolation)
+            if args.resize_mode is not None or args.padding_color != 'black':
+                parser.error('Resizing options (resize-mode, padding-color) require --size to be specified.')
 
-        resize_images(args.source, args.output, args.resize_dim, args.num_workers, args.interpolation)
+        # Additional validation for background removal flags
+        if (args.remove_background or args.remove_bg_full) and not args.crop_by_class:
+            parser.error('--remove-background and --remove-bg-full require --crop-by-class to be set.')
 
+    # Execute the subcommand
+    if args.command == 'segment':
+        from wing_segmenter.segmenter import Segmenter
 
-if __name__ == '__main__':
-    main()
+        segmenter = Segmenter(args)
+        segmenter.process_dataset()
+
+    elif args.command == 'scan-runs':
+        from wing_segmenter.run_scanner import scan_runs
+
+        scan_runs(dataset_path=args.dataset, output_base_dir=args.output_dir)

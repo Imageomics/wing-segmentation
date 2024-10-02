@@ -17,7 +17,7 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "torch==2.1.1",
+    "torch",
     "torchvision",
     "numpy",
     "pandas",
@@ -27,11 +27,13 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "ultralytics",
+    "rich",
     "tqdm",
     "huggingface-hub",
     "pycocotools",
     "wget",
     "segment-anything",
+    "transformers",
 ]
 
 [project.optional-dependencies]
@@ -46,7 +48,7 @@ Issues = "https://github.com/Imageomics/wing-segmentation/issues"
 Source = "https://github.com/Imageomics/wing-segmentation/"
 
 [project.scripts]
-ws = "wing_segmenter.__main__:main"
+wingseg = "wing_segmenter.__main__:main"
 
 [tool.hatch.metadata]
 allow-direct-references = true
