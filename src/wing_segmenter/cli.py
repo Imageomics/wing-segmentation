@@ -31,13 +31,14 @@ def main():
                               help='Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary.')
 
     # Padding options
-    resize_group.add_argument('--padding-color', choices=['black', 'white'], default='black',
+    resize_group.add_argument('--padding-color', choices=['black', 'white'], default=None,
                               help='Padding color to use when --resize-mode is "pad".')
 
     # Interpolation options
     resize_group.add_argument('--interpolation', choices=['nearest', 'linear', 'cubic', 'area', 'lanczos4', 'linear_exact', 'nearest_exact'],
                               default='area',
                               help='Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.')
+
 
     # Output options within mutually exclusive group
     output_group = segment_parser.add_mutually_exclusive_group()
@@ -53,8 +54,6 @@ def main():
                                 help='Number of worker threads to use for processing.')
     segment_parser.add_argument('--device', choices=['cpu', 'cuda'], default='cpu',
                                 help='Device to use for processing.')
-    segment_parser.add_argument('--save-intermediates', action='store_true',
-                                help='Save intermediate files (resized images and segmentation masks).')
     segment_parser.add_argument('--visualize-segmentation', action='store_true',
                                 help='Generate and save segmentation visualizations.')
     segment_parser.add_argument('--force', action='store_true',
@@ -62,11 +61,11 @@ def main():
     segment_parser.add_argument('--crop-by-class', action='store_true',
                                 help='Enable cropping of segmented classes into crops/ directory.')
 
-    # CLI Flags for background removal
+    # Background removal options
     bg_group = segment_parser.add_argument_group('Background Removal Options')
-    bg_group.add_argument('--remove-background', action='store_true', default=False,
+    bg_group.add_argument('--remove-background', action='store_true',
                            help='Remove background from cropped images.')
-    bg_group.add_argument('--background-color', choices=['white', 'black'], default='black',
+    bg_group.add_argument('--background-color', choices=['white', 'black'], default=None,
                            help='Background color to use when removing background. Applicable only if --remove-background is set.')
     bg_group.add_argument('--remove-bg-full', action='store_true',
                            help='Remove background from the entire (resized or original) image.')
@@ -87,16 +86,16 @@ def main():
                 parser.error('--size must accept either one value (square resize) or two values (width and height).')
             if not args.resize_mode:
                 parser.error('--resize-mode must be specified when --size is provided.')
-            if args.resize_mode == 'pad' and args.padding_color is None:
-                args.padding_color = 'black'
         # If no size is provided, ensure that resizing options were not explicitly set
         else:
-            if args.resize_mode is not None or args.padding_color != 'black':
-                parser.error('Resizing options (resize-mode, padding-color) require --size to be specified.')
+            if args.resize_mode is not None:
+                parser.error('Resizing options (--resize-mode) require --size to be specified.')
+            if args.padding_color is not None:
+                parser.error('Resizing options (--padding-color) require --size to be specified.')
 
-        # Additional validation for background removal flags
-        if (args.remove_background or args.remove_bg_full) and not args.crop_by_class:
-            parser.error('--remove-background and --remove-bg-full require --crop-by-class to be set.')
+        # Only --remove-background requires --crop-by-class
+        if args.remove_background and not args.crop_by_class:
+            parser.error('--remove-background requires --crop-by-class to be set.')
 
         # Ensure that if --custom-output-dir is set, --outputs-base-dir is not used
         if args.custom_output_dir and args.outputs_base_dir:

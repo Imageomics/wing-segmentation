@@ -2,6 +2,7 @@ import uuid
 import hashlib
 import json
 import os
+from wing_segmenter.constants import CLASSES
 
 NAMESPACE_UUID = uuid.UUID('00000000-0000-0000-0000-000000000000')
 
@@ -61,19 +62,22 @@ def get_run_hardware_info(device, num_workers):
         hardware_info['cuda_memory_total'] = torch.cuda.get_device_properties(0).total_memory
     return hardware_info
 
-def update_segmentation_info(segmentation_info, image_path, mask):
+def update_segmentation_info(segmentation_info, image_path, classes_present):
     """
-    Updates the segmentation information list with details about the processed image.
+    Updates the segmentation information list with binary flags for each class.
     
     Parameters:
     - segmentation_info (list): The list to update.
     - image_path (str): Path to the processed image.
-    - mask (np.array): The segmentation mask.
+    - classes_present (list): List of class names detected in the image.
     """
-    segmentation_info.append({
-        'image_path': image_path,
-        'mask': mask.tolist()
-    })
+    entry = {'image': image_path}
+    
+    for class_id, class_name in CLASSES.items():
+        # Assign 1 if the class is present, else 0
+        entry[class_name] = 1 if class_name in classes_present else 0
+    
+    segmentation_info.append(entry)
 
 def save_segmentation_info(segmentation_info, mask_csv):
     """

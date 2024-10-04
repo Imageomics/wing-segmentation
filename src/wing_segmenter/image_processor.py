@@ -7,6 +7,8 @@ from wing_segmenter.constants import CLASSES
 from wing_segmenter.exceptions import ImageProcessingError
 from wing_segmenter.resizer import resize_image
 
+from wing_segmenter.metadata_manager import update_segmentation_info
+
 def process_image(segmenter, image_path):
     """
     Processes a single image: loads, resizes, predicts, masks, saves results, and crops by class.
@@ -24,26 +26,37 @@ def process_image(segmenter, image_path):
             logging.warning(f"Failed to read image: {image_path}")
             return
 
-        resized_image = resize_image(
-            image,
-            segmenter.size,
-            segmenter.resize_mode,
-            segmenter.padding_color,
-            segmenter.interpolation
-        )
+        # Determine padding color
+        if segmenter.resize_mode == 'pad':
+            padding_color_to_use = segmenter.padding_color if segmenter.padding_color is not None else 'black'
+        else:
+            padding_color_to_use = None  # Not used
 
-        # Save resized image if asked for
-        if segmenter.save_intermediates:
+        # Resize the image if requested
+        if segmenter.size:
+            working_image = resize_image(
+                image,
+                segmenter.size,
+                segmenter.resize_mode,
+                padding_color_to_use,
+                segmenter.interpolation
+            )
+            # Save resized image
             save_path = os.path.join(segmenter.resized_dir, relative_path)
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            cv2.imwrite(save_path, resized_image)
+            cv2.imwrite(save_path, working_image)
+        else:
+            working_image = image  # no resizing
 
-        resized_image_rgb = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
+        working_image_rgb = cv2.cvtColor(working_image, cv2.COLOR_BGR2RGB)
 
-        yolo_results = segmenter.yolo_model(resized_image_rgb)
+        yolo_results = segmenter.yolo_model(working_image_rgb)
 
         # Initialize full image foreground mask
-        foreground_mask = np.zeros((resized_image.shape[0], resized_image.shape[1]), dtype=np.uint8)
+        foreground_mask = np.zeros((working_image.shape[0], working_image.shape[1]), dtype=np.uint8)
+
+        # To collect classes detected in this image
+        classes_detected = set()
 
         # Process each detection
         for result in yolo_results:
@@ -53,7 +66,7 @@ def process_image(segmenter, image_path):
 
             mask = get_mask_SAM(
                 result,
-                resized_image_rgb,
+                working_image_rgb,
                 segmenter.sam_processor,
                 segmenter.sam_model,
                 segmenter.device
@@ -66,21 +79,25 @@ def process_image(segmenter, image_path):
                 os.makedirs(os.path.dirname(mask_save_path), exist_ok=True)
                 cv2.imwrite(mask_save_path, mask)
 
-                # Save visualization
+                # Save visualization if enabled
                 if segmenter.visualize_segmentation:
-                    viz = overlay_mask_on_image(resized_image_rgb, mask)
+                    viz = overlay_mask_on_image(working_image_rgb, mask)
                     viz_save_path = os.path.join(segmenter.viz_dir, relative_path)
                     viz_save_path = os.path.splitext(viz_save_path)[0] + '_viz.png'
                     os.makedirs(os.path.dirname(viz_save_path), exist_ok=True)
                     cv2.imwrite(viz_save_path, cv2.cvtColor(viz, cv2.COLOR_RGB2BGR))
 
-                # Update segmentation info
-                from wing_segmenter.metadata_manager import update_segmentation_info
-                update_segmentation_info(segmenter.segmentation_info, image_path, mask)
+                # Extract classes present in the mask
+                classes_in_mask = np.unique(mask)
+                for class_id in classes_in_mask:
+                    if class_id in CLASSES and class_id != 0:  # Exclude background
+                        classes_detected.add(CLASSES[class_id])
+                if 0 in classes_in_mask:
+                    classes_detected.add('background')
 
                 # Crop by class with optional background removal
                 if segmenter.crop_by_class:
-                    crop_and_save_by_class(segmenter, resized_image, mask, relative_path)
+                    crop_and_save_by_class(segmenter, working_image, mask, relative_path)
 
                 # Aggregate foreground masks (excluding background class 0)
                 detected_classes = result.boxes.cls.cpu().numpy().astype(int)
@@ -93,11 +110,17 @@ def process_image(segmenter, image_path):
             else:
                 logging.warning(f"No mask generated for image: {image_path}")
 
-        # Remove background from full image
-        if segmenter.remove_bg_full and segmenter.save_intermediates:
+        # Update segmentation info with binary flags
+        if classes_detected:
+            update_segmentation_info(segmenter.segmentation_info, image_path, list(classes_detected))
+        else:
+            # If no classes detected, still log the image with all classes as 0
+            update_segmentation_info(segmenter.segmentation_info, image_path, [])
+
+        # Remove background from full image if specified
+        if segmenter.remove_bg_full:
             if np.any(foreground_mask):
-                # Pass the foreground_mask directly to remove_background
-                full_image_bg_removed = remove_background(resized_image, foreground_mask, segmenter.background_color)
+                full_image_bg_removed = remove_background(working_image, foreground_mask, segmenter.background_color)
 
                 # Prepare save path for full background removal
                 full_image_bg_removed_save_path = os.path.splitext(os.path.join(segmenter.full_bkgd_removed_dir, relative_path))[0] + '_bg_removed.png'
@@ -110,6 +133,94 @@ def process_image(segmenter, image_path):
     except Exception as e:
         logging.error(f"Error processing image {image_path}: {e}")
         raise ImageProcessingError(f"Error processing image {image_path}: {e}")
+
+def get_mask_SAM(result, image, processor, model, device):
+    """
+    Generate mask using SAM model.
+
+    Parameters:
+    - result: YOLO prediction result.
+    - image (np.array): The input image in RGB format.
+    - processor (SamProcessor): SAM processor.
+    - model (SamModel): SAM model.
+    - device (str): 'cpu' or 'cuda'.
+
+    Returns:
+    - img_mask (np.array): The generated mask.
+    """
+    # Get bounding boxes and class labels from YOLO
+    bboxes_labels = result.boxes.cls
+    bboxes_xyxy = result.boxes.xyxy
+    input_boxes = [bbox.cpu().numpy().tolist()[:4] for bbox in bboxes_xyxy]
+
+    if len(bboxes_xyxy) == 0:
+        logging.warning("No bounding boxes detected by YOLO.")
+        return None
+
+    # Prepare inputs for SAM using the processor
+    inputs = processor(images=image, input_boxes=[input_boxes], return_tensors="pt").to(device)
+
+    try:
+        with torch.no_grad():
+            outputs = model(**inputs)
+
+        # Resize masks to original image size
+        masks = processor.post_process_masks(
+            outputs.pred_masks.cpu(),
+            inputs["original_sizes"].cpu(),
+            inputs["reshaped_input_sizes"].cpu()
+        )[0]
+
+        # Initialize 2D mask for image
+        img_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
+
+        # Process masks
+        for mask_idx, bbox_label in enumerate(bboxes_labels):
+            pred_label = int(bbox_label.item())
+
+            if mask_idx >= masks.shape[0]:
+                logging.warning("Mismatch between number of masks and detections.")
+                continue
+
+            mask = masks[mask_idx]  # this should be 2D
+
+            # Ensure mask is a 2D array
+            if mask.ndim == 3:
+                mask = mask[0]
+
+            # Convert tensor to numpy array and apply binary threshold
+            mask = mask.cpu().numpy()
+            mask_binary = (mask > 0.5).astype(np.uint8)
+
+            # Assign class ID to mask
+            mask_labeled = mask_binary * pred_label
+
+            # Update the image mask, resolving overlaps by overwriting
+            img_mask[mask_labeled > 0] = mask_labeled[mask_labeled > 0]
+
+    except Exception as e:
+        logging.error(f"Error during SAM mask creation: {e}")
+        return None
+
+    return img_mask
+
+def overlay_mask_on_image(image, mask):
+    """
+    Overlay the segmentation mask on the image for visualization.
+
+    Parameters:
+    - image (np.array): Original image in RGB format.
+    - mask (np.array): Segmentation mask.
+
+    Returns:
+    - overlay (np.array): Image with mask overlay.
+    """
+    # Apply color map to mask
+    color_mask = cv2.applyColorMap((mask * 25).astype(np.uint8), cv2.COLORMAP_JET)
+    color_mask = cv2.cvtColor(color_mask, cv2.COLOR_BGR2RGB)  # Convert to RGB
+    # Overlay
+    overlay = cv2.addWeighted(image, 0.7, color_mask, 0.3, 0)
+    return overlay
 
 def crop_and_save_by_class(segmenter, image, mask, relative_path):
     """
@@ -136,8 +247,8 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path):
             logging.info(f"No instances found for class '{class_name}' in image '{relative_path}'.")
             continue  # No mask for this class
 
-        for cnt in contours:
-            x, y, w, h = cv2.boundingRect(cnt)
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
 
             # Apply padding?
             padding = 0  # could make this configurable
@@ -150,9 +261,6 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path):
             cropped_image = image[y:y+h, x:x+w]
             cropped_mask = class_mask[y:y+h, x:x+w]
 
-            # Ensure class directory exists
-            ensure_class_directory(segmenter, class_name)
-
             # Prepare save path for cropped classes
             crop_relative_path = os.path.join(class_name, relative_path)
             crop_save_path = os.path.splitext(os.path.join(segmenter.crops_dir, crop_relative_path))[0] + f'_{class_name}.png'
@@ -160,11 +268,10 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path):
 
             # Save cropped image
             cv2.imwrite(crop_save_path, cropped_image)
-
             logging.info(f"Cropped '{class_name}' saved to '{crop_save_path}'.")
 
-            # Background removal
-            if segmenter.remove_background and segmenter.save_intermediates:
+            # Background removal from cropped image if specified
+            if segmenter.remove_background:
                 cropped_image_bg_removed = remove_background(cropped_image, cropped_mask, segmenter.background_color)
 
                 # Prepare save path for background-removed cropped class images
@@ -187,6 +294,10 @@ def remove_background(image, mask, bg_color='black'):
     Returns:
     - final_image (np.array): The image with background removed/replaced.
     """
+    if bg_color is None:
+        logging.warning("bg_color is None. Defaulting to 'black'.")
+        bg_color = 'black'
+
     if bg_color.lower() == 'white':
         background = np.full(image.shape, 255, dtype=np.uint8)
     elif bg_color.lower() == 'black':
@@ -214,113 +325,3 @@ def remove_background(image, mask, bg_color='black'):
         final_image = image.copy()
 
     return final_image
-
-def get_mask_SAM(result, image, processor, model, device):
-    """
-    Generate mask using SAM model.
-
-    Parameters:
-    - result: YOLO prediction result.
-    - image (np.array): The input image in RGB format.
-    - processor (SamProcessor): SAM processor.
-    - model (SamModel): SAM model.
-    - device (str): 'cpu' or 'cuda'.
-
-    Returns:
-    - img_mask (np.array): The generated mask.
-    """
-    # Get bounding boxes and class labels from YOLO
-    bboxes_labels = result.boxes.cls
-    bboxes_xyxy = result.boxes.xyxy
-    input_boxes = [[bbox.cpu().numpy().tolist()[:4] for bbox in bboxes_xyxy]]
-
-    if len(bboxes_xyxy) == 0:
-        logging.warning("No bounding boxes detected by YOLO.")
-        return None
-
-    # Prepare inputs for SAM using the processor
-    inputs = processor(images=image, input_boxes=input_boxes, return_tensors="pt").to(device)
-
-    try:
-        with torch.no_grad():
-            outputs = model(**inputs)
-
-        # Resize masks to original image size
-        masks = processor.post_process_masks(
-            outputs.pred_masks.cpu(),
-            inputs["original_sizes"].cpu(),
-            inputs["reshaped_input_sizes"].cpu()
-        )[0]
-
-        # Ensure masks are 2D, not 3D
-        if masks.ndim == 3:
-            masks = masks[0]  # Extract the first mask if it's 3D
-
-        # Initialize 2D mask for image
-        img_mask = np.zeros((image.shape[0], image.shape[1]), dtype=np.uint8)
-
-        # Process masks
-        for mask_idx, bbox_label in enumerate(bboxes_labels):
-            pred_label = int(bbox_label.item())
-
-            mask = masks[mask_idx]  # this should be 2D
-
-            # Ensure mask is a 2D array
-            if mask.ndim == 3:  # if mask is 3D, convert to 2D
-                mask = mask[0]
-
-            # Convert tensor to numpy array and apply binary threshold
-            mask = mask.cpu().numpy()
-            mask_binary = (mask > 0.5).astype(np.uint8)
-            mask_labeled = mask_binary * pred_label
-
-            img_mask[mask_labeled > 0] = mask_labeled[mask_labeled > 0]
-
-    except Exception as e:
-        logging.error(f"Error during SAM mask creation: {e}")
-        return None
-
-    return img_mask
-
-def overlay_mask_on_image(image, mask):
-    """
-    Overlay the segmentation mask on the image for visualization.
-
-    Parameters:
-    - image (np.array): Original image in RGB format.
-    - mask (np.array): Segmentation mask.
-
-    Returns:
-    - overlay (np.array): Image with mask overlay.
-    """
-    # Apply color map to mask
-    color_mask = cv2.applyColorMap((mask * 25).astype(np.uint8), cv2.COLORMAP_JET)
-    color_mask = cv2.cvtColor(color_mask, cv2.COLOR_BGR2RGB)  # Convert to RGB
-    # Overlay
-    overlay = cv2.addWeighted(image, 0.7, color_mask, 0.3, 0)
-    return overlay
-
-def ensure_class_directory(segmenter, class_name):
-    """
-    Ensures that the class-specific directory exists before saving a cropped image.
-    
-    Parameters:
-    - segmenter (Segmenter): The Segmenter instance.
-    - class_name (str): Name of the class.
-    """
-    class_crop_dir = os.path.join(segmenter.crops_dir, class_name)
-    if not os.path.exists(class_crop_dir):
-        os.makedirs(class_crop_dir, exist_ok=True)
-
-# def cv2_to_pil(cv2_image):
-#     """
-#     Convert an OpenCV image (BGR format) to a PIL image (RGB format).
-#     """
-#     from PIL import Image
-#     return Image.fromarray(cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB))
-
-# def pil_to_cv2(pil_image):
-#     """
-#     Convert a PIL image (RGB format) to an OpenCV image (BGR format).
-#     """
-#     return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)

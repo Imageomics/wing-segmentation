@@ -6,16 +6,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 from wing_segmenter.model_manager import load_models
-from wing_segmenter.resizer import resize_image
-from wing_segmenter.path_manager import setup_paths
 from wing_segmenter.image_processor import process_image
-from wing_segmenter.metadata_manager import (
-    generate_uuid,
-    get_dataset_hash,
-    get_run_hardware_info,
-)
-from wing_segmenter.exceptions import ModelLoadError, ImageProcessingError
+from wing_segmenter.path_manager import setup_paths
+from wing_segmenter.metadata_manager import generate_uuid, get_dataset_hash, get_run_hardware_info
 from wing_segmenter import __version__ as package_version
+from wing_segmenter.exceptions import ImageProcessingError
 
 class Segmenter:
     def __init__(self, config):
@@ -27,54 +22,35 @@ class Segmenter:
         self.padding_color = config.padding_color
         self.interpolation = config.interpolation
         self.num_workers = config.num_workers
-        self.save_intermediates = config.save_intermediates
         self.visualize_segmentation = config.visualize_segmentation
         self.force = config.force
         self.crop_by_class = config.crop_by_class
         self.remove_background = config.remove_background
         self.remove_bg_full = config.remove_bg_full
-        self.background_color = config.background_color if (self.remove_background or self.remove_bg_full) else None
+        if self.remove_background or self.remove_bg_full:
+            self.background_color = config.background_color if config.background_color else 'black'
+        else:
+            self.background_color = None
         self.segmentation_info = []
         self.output_base_dir = os.path.abspath(config.outputs_base_dir) if config.outputs_base_dir else None
         self.custom_output_dir = os.path.abspath(config.custom_output_dir) if config.custom_output_dir else None
 
-        # Ensure that only one of outputs_base_dir or custom_output_dir is used
-        if self.output_base_dir and self.custom_output_dir:
-            raise ValueError("Cannot specify both --outputs-base-dir and --custom-output-dir.")
-
-        # Prepare parameters for hashing
-        self.parameters_for_hash = {
+        # Generate UUID based on parameters
+        self.run_uuid = generate_uuid({
             'dataset_hash': get_dataset_hash(self.dataset_path),
             'sam_model_name': self.config.sam_model,
             'yolo_model_name': self.config.yolo_model,
             'resize_mode': self.resize_mode,
-            'size': self.size if self.size else None,
-            'width': self.size[0] if self.size and len(self.size) == 1 else (self.size[0] if self.size else None),
-            'height': self.size[1] if self.size and len(self.size) == 2 else (self.size[0] if self.size and len(self.size) == 1 else None),
-            'padding_color': self.padding_color if self.resize_mode == 'pad' else None,
-            'interpolation': self.interpolation if self.size else None,
-            'save_intermediates': self.save_intermediates,
-            'visualize_segmentation': self.visualize_segmentation,
-            'crop_by_class': self.crop_by_class,
-            'remove_background': self.remove_background,
-            'remove_bg_full': self.remove_bg_full,
-            'background_color': self.background_color
-        }
+            'size': self.size,
+        })
 
-        # Generate UUID based on parameters
-        self.run_uuid = generate_uuid(self.parameters_for_hash)
-
-        # Setup output paths
         setup_paths(self)
-
-        # Load models
         self.yolo_model, self.sam_model, self.sam_processor = load_models(self.config, self.device)
 
     def process_dataset(self):
         start_time = time.time()
         errors_occurred = False
 
-        # Prepare image paths
         image_paths = []
         valid_extensions = ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp')
         for root, _, files in os.walk(self.dataset_path):
@@ -84,8 +60,7 @@ class Segmenter:
 
         if not image_paths:
             logging.error("No images found in the dataset.")
-            errors_occurred = True
-            return errors_occurred
+            return True
 
         # Check for existing run unless force is specified
         if os.path.exists(self.metadata_path) and not self.force:
@@ -93,27 +68,25 @@ class Segmenter:
                 existing_metadata = json.load(f)
             if existing_metadata.get('run_status', {}).get('completed'):
                 logging.info(f"Processing already completed for dataset '{self.dataset_path}' with the specified parameters.")
-                logging.info(f"Outputs are available at '{self.output_dir}'.")
-                return errors_occurred
+                return False
 
         # Initialize metadata
         self.metadata = {
             'dataset': {
-                'dataset_hash': self.parameters_for_hash['dataset_hash'],
+                'dataset_hash': get_dataset_hash(self.dataset_path),
                 'num_images': len(image_paths)
             },
             'run_parameters': {
                 'sam_model_name': self.config.sam_model,
                 'yolo_model_name': self.config.yolo_model,
                 'resize_mode': self.resize_mode,
-                'size': self.size if self.size else None,
+                'size': self.size,
                 'padding_color': self.padding_color if self.resize_mode == 'pad' else None,
                 'interpolation': self.interpolation if self.size else None,
-                'save_intermediates': self.save_intermediates,
                 'visualize_segmentation': self.visualize_segmentation,
                 'crop_by_class': self.crop_by_class,
                 'remove_background': self.remove_background,
-                'remove_bg_full': self.remove_bg_full, 
+                'remove_bg_full': self.remove_bg_full,
                 'background_color': self.background_color
             },
             'run_hardware': get_run_hardware_info(self.device, self.num_workers),
@@ -140,7 +113,7 @@ class Segmenter:
                             errors_occurred = True
                             self.metadata['run_status']['errors'] = "One or more images failed during processing."
                         finally:
-                            pbar.update(1)  # update progress for each completed task
+                            pbar.update(1)
 
         except Exception as e:
             logging.error(f"Processing failed: {e}")
@@ -150,24 +123,21 @@ class Segmenter:
                 json.dump(self.metadata, f, indent=4)
             raise e
 
-        # Save segmentation info
+        processing_time = time.time() - start_time
+        self.metadata['run_status']['completed'] = not errors_occurred
+        self.metadata['run_status']['processing_time_seconds'] = processing_time
+
+        # Save segmentation info and CSV
         if self.segmentation_info:
             from wing_segmenter.metadata_manager import save_segmentation_info
             save_segmentation_info(self.segmentation_info, self.mask_csv)
 
-        # Update metadata on completion
-        processing_time = time.time() - start_time
-
-        self.metadata['run_status']['completed'] = not errors_occurred
-        self.metadata['run_status']['processing_time_seconds'] = processing_time
-
-        # Save updated metadata
         with open(self.metadata_path, 'w') as f:
             json.dump(self.metadata, f, indent=4)
 
         if errors_occurred:
-            logging.warning(f"Processing completed with errors. Outputs are available at: \n\t{self.output_dir}")
+            logging.warning(f"Processing completed with errors. Outputs are available at: {self.output_dir}")
         else:
-            logging.info(f"Processing completed successfully. Outputs are available at: \n\t{self.output_dir}")
+            logging.info(f"Processing completed successfully. Outputs are available at: {self.output_dir}")
 
         return errors_occurred
