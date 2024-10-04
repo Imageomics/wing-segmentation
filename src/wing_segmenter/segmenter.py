@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import time
-import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
@@ -36,21 +35,12 @@ class Segmenter:
         self.remove_bg_full = config.remove_bg_full
         self.background_color = config.background_color if (self.remove_background or self.remove_bg_full) else None
         self.segmentation_info = []
-        self.output_base_dir = os.path.abspath(config.output_dir) if config.output_dir else None
+        self.output_base_dir = os.path.abspath(config.outputs_base_dir) if config.outputs_base_dir else None
+        self.custom_output_dir = os.path.abspath(config.custom_output_dir) if config.custom_output_dir else None
 
-        # Define your namespace UUID based on a string
-        self.NAMESPACE_UUID = uuid.uuid5(uuid.NAMESPACE_DNS, 'Imageomics Wing Segmentation')
-
-        # Handle resizing dimensions
-        if self.size:
-            if len(self.size) == 1:
-                self.width = self.height = self.size[0]
-            elif len(self.size) == 2:
-                self.width, self.height = self.size
-            else:
-                raise ValueError("Invalid size argument. Size must have either one or two values.")
-        else:
-            self.width = self.height = None  # if no resizing use None
+        # Ensure that only one of outputs_base_dir or custom_output_dir is used
+        if self.output_base_dir and self.custom_output_dir:
+            raise ValueError("Cannot specify both --outputs-base-dir and --custom-output-dir.")
 
         # Prepare parameters for hashing
         self.parameters_for_hash = {
@@ -59,8 +49,8 @@ class Segmenter:
             'yolo_model_name': self.config.yolo_model,
             'resize_mode': self.resize_mode,
             'size': self.size if self.size else None,
-            'width': self.width,
-            'height': self.height,
+            'width': self.size[0] if self.size and len(self.size) == 1 else (self.size[0] if self.size else None),
+            'height': self.size[1] if self.size and len(self.size) == 2 else (self.size[0] if self.size and len(self.size) == 1 else None),
             'padding_color': self.padding_color if self.resize_mode == 'pad' else None,
             'interpolation': self.interpolation if self.size else None,
             'save_intermediates': self.save_intermediates,
@@ -72,14 +62,16 @@ class Segmenter:
         }
 
         # Generate UUID based on parameters
-        self.run_uuid = generate_uuid(self.parameters_for_hash, self.NAMESPACE_UUID)
+        self.run_uuid = generate_uuid(self.parameters_for_hash)
 
+        # Setup output paths
         setup_paths(self)
 
+        # Load models
         self.yolo_model, self.sam_model, self.sam_processor = load_models(self.config, self.device)
 
     def process_dataset(self):
-        start_time = time.time() 
+        start_time = time.time()
         errors_occurred = False
 
         # Prepare image paths

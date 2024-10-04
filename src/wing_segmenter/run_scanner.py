@@ -4,7 +4,7 @@ import glob
 from rich.table import Table
 from rich.console import Console
 
-def scan_runs(dataset_path, output_base_dir=None):
+def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
     dataset_path = os.path.abspath(dataset_path)
 
     if not os.path.exists(dataset_path):
@@ -14,22 +14,29 @@ def scan_runs(dataset_path, output_base_dir=None):
 
     # Determine the base directory to search for runs
     dataset_name = os.path.basename(dataset_path.rstrip('/\\'))
-    if output_base_dir:
-        output_dir = os.path.abspath(output_base_dir)
+    
+    if custom_output_dir:
+        # If a custom output directory is provided, scan only that directory without expecting specific naming
+        run_dirs = [custom_output_dir] if os.path.exists(custom_output_dir) else []
     else:
-        output_dir = os.path.dirname(dataset_path)
+        if output_base_dir:
+            output_dir = os.path.abspath(output_base_dir)
+        else:
+            output_dir = os.path.dirname(dataset_path)
 
-    # Search for run directories in the specified output directory
-    pattern = f"{output_dir}/{dataset_name}_*"
-    run_dirs = glob.glob(pattern)
+        # Search for run directories in the specified output directory
+        pattern = f"{output_dir}/{dataset_name}_*"
+        run_dirs = glob.glob(pattern)
 
     console = Console()
 
     if not run_dirs:
-        if output_base_dir:
+        if custom_output_dir:
+            console.print(f"[red]No processing runs found in the custom output directory '{custom_output_dir}' for dataset '{dataset_name}'.[/red]")
+        elif output_base_dir:
             console.print(f"[red]No processing runs found in '{output_dir}' for dataset '{dataset_name}'.[/red]")
         else:
-            console.print(f"[red]No processing runs found for dataset '{dataset_name}' in default location ('{output_dir}'). If you saved results in a custom location, please use the `--output-dir` flag for the `scan-runs` command.[/red]")
+            console.print(f"[red]No processing runs found for dataset '{dataset_name}' in default location ('{output_dir}'). If you saved results in a custom location, please use the `--custom-output-dir` flag for the `scan-runs` command.[/red]")
         return
 
     console.print(f"[bold green]Found {len(run_dirs)} processing runs for dataset '{dataset_name}':[/bold green]\n")
@@ -81,7 +88,7 @@ def scan_runs(dataset_path, output_base_dir=None):
         errors = str(metadata['run_status'].get('errors', 'None'))
 
         # Truncate run UUID to save table space
-        run_uuid_prefix = os.path.basename(run_dir).split('_')[-1][:8]
+        run_uuid_prefix = os.path.basename(run_dir).split('_')[-1][:8] if not custom_output_dir else "CustomDir"
 
         # Add row to the table
         table.add_row(

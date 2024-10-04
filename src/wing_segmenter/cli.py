@@ -39,8 +39,16 @@ def main():
                               default='area',
                               help='Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.')
 
+    # **Remove the following two lines to avoid duplication**
+    # segment_parser.add_argument('--outputs-base-dir', default=None, help='Base path to store outputs for multiple runs.')
+    # segment_parser.add_argument('--custom-output-dir', default=None, help='Fully custom directory to store all output files for a run.')
+
+    # Output options within mutually exclusive group
+    output_group = segment_parser.add_mutually_exclusive_group()
+    output_group.add_argument('--outputs-base-dir', default=None, help='Base path to store outputs.')
+    output_group.add_argument('--custom-output-dir', default=None, help='Fully custom directory to store all output files.')
+
     # General processing options
-    segment_parser.add_argument('--output-dir', default=None, help='Base path to store outputs.')
     segment_parser.add_argument('--sam-model', default='facebook/sam-vit-base',
                                 help='SAM model to use (e.g., facebook/sam-vit-base)')
     segment_parser.add_argument('--yolo-model', default='imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt',
@@ -93,6 +101,10 @@ def main():
         # Additional validation for background removal flags
         if (args.remove_background or args.remove_bg_full) and not args.crop_by_class:
             parser.error('--remove-background and --remove-bg-full require --crop-by-class to be set.')
+
+        # Ensure that if --custom-output-dir is set, --outputs-base-dir is not used
+        if args.custom_output_dir and args.outputs_base_dir:
+            parser.error('Cannot specify both --outputs-base-dir and --custom-output-dir. Choose one.')
 
     # Execute the subcommand
     if args.command == 'segment':

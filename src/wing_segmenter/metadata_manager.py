@@ -3,20 +3,21 @@ import hashlib
 import json
 import os
 
-def generate_uuid(parameters, namespace_uuid):
+NAMESPACE_UUID = uuid.UUID('00000000-0000-0000-0000-000000000000')
+
+def generate_uuid(parameters):
     """
-    Generates a UUID based on the hash of the parameters.
+    Generates a UUID based on the provided parameters and a fixed namespace UUID.
     
     Parameters:
     - parameters (dict): The parameters to hash.
-    - namespace_uuid (uuid.UUID): The namespace UUID.
     
     Returns:
     - uuid.UUID: The generated UUID.
     """
-    # Convert parameters to a sorted JSON string to ensure consistency
-    param_str = json.dumps(parameters, sort_keys=True).encode('utf-8')
-    return uuid.uuid5(namespace_uuid, hashlib.sha256(param_str).hexdigest())
+    # Serialize parameters to a sorted JSON string to ensure consistency
+    param_str = json.dumps(parameters, sort_keys=True)
+    return uuid.uuid5(NAMESPACE_UUID, param_str)
 
 def get_dataset_hash(dataset_path):
     """
