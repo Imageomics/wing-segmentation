@@ -1,16 +1,8 @@
 import cv2
+from wing_segmenter.constants import INTERPOLATION_METHODS
 
 def get_interpolation_method(interpolation):
-    interpolation_map = {
-        'nearest': cv2.INTER_NEAREST,
-        'linear': cv2.INTER_LINEAR,
-        'cubic': cv2.INTER_CUBIC,
-        'area': cv2.INTER_AREA,
-        'lanczos4': cv2.INTER_LANCZOS4,
-        'linear_exact': cv2.INTER_LINEAR_EXACT,
-        'nearest_exact': cv2.INTER_NEAREST_EXACT,
-    }
-    return interpolation_map.get(interpolation, cv2.INTER_AREA)
+    return INTERPOLATION_METHODS.get(interpolation, cv2.INTER_AREA)
 
 def resize_image(image, size, resize_mode, padding_color, interpolation):
     """
