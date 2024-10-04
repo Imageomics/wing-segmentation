@@ -39,10 +39,6 @@ def main():
                               default='area',
                               help='Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.')
 
-    # **Remove the following two lines to avoid duplication**
-    # segment_parser.add_argument('--outputs-base-dir', default=None, help='Base path to store outputs for multiple runs.')
-    # segment_parser.add_argument('--custom-output-dir', default=None, help='Fully custom directory to store all output files for a run.')
-
     # Output options within mutually exclusive group
     output_group = segment_parser.add_mutually_exclusive_group()
     output_group.add_argument('--outputs-base-dir', default=None, help='Base path to store outputs.')
