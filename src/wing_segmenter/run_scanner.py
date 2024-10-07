@@ -48,15 +48,14 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
     table.add_column("Completed", justify="center", no_wrap=True, width=9)
     table.add_column("Num Images", justify="right", no_wrap=False, width=10)
     table.add_column("Resize Dims", justify="center", no_wrap=False, width=11)
+    table.add_column("Resize Mode", justify="center", no_wrap=False, width=7)
     table.add_column("Interp", justify="center", no_wrap=True, min_width=13)
-    table.add_column("Save Intermed", justify="center", no_wrap=False, width=8)
-    table.add_column("Visualize Seg", justify="center", no_wrap=False, width=9)
     table.add_column("Errors", justify="center", no_wrap=True, min_width=6)
 
     for idx, run_dir in enumerate(run_dirs, 1):
         metadata_path = os.path.join(run_dir, 'metadata.json')
         if not os.path.exists(metadata_path):
-            table.add_row(str(idx), f"Missing metadata.json", "", "", "", "", "", "", "")
+            table.add_row(str(idx), f"Missing metadata.json", "", "", "", "", "", "")
             continue
 
         with open(metadata_path, 'r') as f:
@@ -67,6 +66,7 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
 
         num_images = str(metadata['dataset'].get('num_images', 'Unknown'))
         resize_dims = metadata['run_parameters'].get('size', 'None (original)')
+        resize_mode = str(metadata['run_parameters'].get('resize_mode', 'None'))
 
         # Handle 'size' being a list with 1 or 2 elements or other types
         if isinstance(resize_dims, list):
@@ -81,9 +81,6 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
 
         interpolation = str(metadata['run_parameters'].get('interpolation', 'None'))
 
-        save_intermediates = 'Yes' if metadata['run_parameters'].get('save_intermediates', False) else 'No'
-        visualize_segmentation = 'Yes' if metadata['run_parameters'].get('visualize_segmentation', False) else 'No'
-
         # Extract any errors
         errors = str(metadata['run_status'].get('errors', 'None'))
 
@@ -97,9 +94,8 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
             completed,
             num_images,
             resize_dims_str,
+            resize_mode,
             interpolation,
-            save_intermediates,
-            visualize_segmentation,
             errors
         )
 

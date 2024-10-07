@@ -126,7 +126,7 @@ def process_image(segmenter, image_path):
                 full_image_bg_removed_save_path = os.path.splitext(os.path.join(segmenter.full_bkgd_removed_dir, relative_path))[0] + '_bg_removed.png'
                 os.makedirs(os.path.dirname(full_image_bg_removed_save_path), exist_ok=True)
                 cv2.imwrite(full_image_bg_removed_save_path, full_image_bg_removed)
-                logging.info(f"Full image with background removed saved to '{full_image_bg_removed_save_path}'.")
+                # logging.info(f"Full image with background removed saved to '{full_image_bg_removed_save_path}'.") # uncomment for debugging
             else:
                 logging.warning(f"No foreground detected for image: {image_path}. Full background removal skipped.")
 
@@ -244,7 +244,7 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path):
         contours, _ = cv2.findContours(class_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         if not contours:
-            logging.info(f"No instances found for class '{class_name}' in image '{relative_path}'.")
+            # logging.info(f"No instances found for class '{class_name}' in image '{relative_path}'.") # uncomment for debugging
             continue  # No mask for this class
 
         for c in contours:
@@ -268,7 +268,7 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path):
 
             # Save cropped image
             cv2.imwrite(crop_save_path, cropped_image)
-            logging.info(f"Cropped '{class_name}' saved to '{crop_save_path}'.")
+            # logging.info(f"Cropped '{class_name}' saved to '{crop_save_path}'.") # uncomment for debugging
 
             # Background removal from cropped image if specified
             if segmenter.remove_background:
@@ -280,7 +280,7 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path):
 
                 # Save the background-removed cropped image
                 cv2.imwrite(crop_bg_removed_save_path, cropped_image_bg_removed)
-                logging.info(f"Cropped '{class_name}' with background removed saved to '{crop_bg_removed_save_path}'.")
+                # logging.info(f"Cropped '{class_name}' with background removed saved to '{crop_bg_removed_save_path}'.") # uncomment for debugging
 
 def remove_background(image, mask, bg_color='black'):
     """

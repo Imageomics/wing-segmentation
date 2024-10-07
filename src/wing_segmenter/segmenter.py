@@ -12,6 +12,8 @@ from wing_segmenter.metadata_manager import generate_uuid, get_dataset_hash, get
 from wing_segmenter import __version__ as package_version
 from wing_segmenter.exceptions import ImageProcessingError
 
+logging.basicConfig(level=logging.INFO)
+
 class Segmenter:
     def __init__(self, config):
         self.config = config
@@ -136,8 +138,8 @@ class Segmenter:
             json.dump(self.metadata, f, indent=4)
 
         if errors_occurred:
-            logging.warning(f"Processing completed with errors. Outputs are available at: {self.output_dir}")
+            logging.warning(f"Processing completed with errors. Outputs are available at: \n\t {self.output_dir}")
         else:
-            logging.info(f"Processing completed successfully. Outputs are available at: {self.output_dir}")
+            logging.info(f"Processing completed successfully. Outputs are available at: \n\t {self.output_dir}")
 
         return errors_occurred
