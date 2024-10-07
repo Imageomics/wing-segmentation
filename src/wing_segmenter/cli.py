@@ -50,8 +50,6 @@ def main():
                                 help='SAM model to use (e.g., facebook/sam-vit-base)')
     segment_parser.add_argument('--yolo-model', default='imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt',
                                 help='YOLO model to use (local path or Hugging Face repo).')
-    segment_parser.add_argument('--num-workers', type=int, default=1,
-                                help='Number of worker threads to use for processing.')
     segment_parser.add_argument('--device', choices=['cpu', 'cuda'], default='cpu',
                                 help='Device to use for processing.')
     segment_parser.add_argument('--visualize-segmentation', action='store_true',

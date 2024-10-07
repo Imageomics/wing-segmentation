@@ -41,20 +41,18 @@ def get_dataset_hash(dataset_path):
                 continue
     return hash_md5.hexdigest()
 
-def get_run_hardware_info(device, num_workers):
+def get_run_hardware_info(device):
     """
     Retrieves information about the hardware used for the run.
     
     Parameters:
     - device (str): 'cpu' or 'cuda'.
-    - num_workers (int): Number of worker threads.
     
     Returns:
     - dict: Hardware information.
     """
     hardware_info = {
         'device': device,
-        'num_workers': num_workers
     }
     if device == 'cuda':
         import torch

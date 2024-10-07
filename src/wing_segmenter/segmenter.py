@@ -2,7 +2,6 @@ import os
 import json
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
 from wing_segmenter.model_manager import load_models
@@ -23,7 +22,6 @@ class Segmenter:
         self.resize_mode = config.resize_mode
         self.padding_color = config.padding_color
         self.interpolation = config.interpolation
-        self.num_workers = config.num_workers
         self.visualize_segmentation = config.visualize_segmentation
         self.force = config.force
         self.crop_by_class = config.crop_by_class
@@ -91,7 +89,7 @@ class Segmenter:
                 'remove_bg_full': self.remove_bg_full,
                 'background_color': self.background_color
             },
-            'run_hardware': get_run_hardware_info(self.device, self.num_workers),
+            'run_hardware': get_run_hardware_info(self.device),
             'run_status': {
                 'completed': False,
                 'processing_time_seconds': None,
@@ -103,19 +101,12 @@ class Segmenter:
             json.dump(self.metadata, f, indent=4)
 
         try:
-            with ThreadPoolExecutor(max_workers=self.num_workers) as executor:
-                futures = {executor.submit(process_image, self, image_path): image_path for image_path in image_paths}
-
-                with tqdm(total=len(futures), desc='Processing Images', unit='image') as pbar:
-                    for future in as_completed(futures):
-                        image_path = futures[future]
-                        try:
-                            future.result()
-                        except ImageProcessingError:
-                            errors_occurred = True
-                            self.metadata['run_status']['errors'] = "One or more images failed during processing."
-                        finally:
-                            pbar.update(1)
+            for image_path in tqdm(image_paths, desc='Processing Images', unit='image'):
+                try:
+                    process_image(self, image_path)
+                except ImageProcessingError:
+                    errors_occurred = True
+                    self.metadata['run_status']['errors'] = "One or more images failed during processing."
 
         except Exception as e:
             logging.error(f"Processing failed: {e}")
