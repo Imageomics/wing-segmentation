@@ -50,18 +50,21 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
     table.add_column("Resize Dims", justify="center", no_wrap=False, width=11)
     table.add_column("Resize Mode", justify="center", no_wrap=False, width=7)
     table.add_column("Interp", justify="center", no_wrap=True, min_width=13)
+    table.add_column("BBox Pad", justify="right", no_wrap=True, min_width=8)
     table.add_column("Errors", justify="center", no_wrap=True, min_width=6)
 
     for idx, run_dir in enumerate(run_dirs, 1):
-        metadata_path = os.path.join(run_dir, 'metadata.json')
+        metadata_path = os.path.join(run_dir, 'metadata', 'run_metadata.json')
+        detection_csv_path = os.path.join(run_dir, 'metadata', 'detection.csv')
+        coco_annotations_path = os.path.join(run_dir, 'metadata', 'coco_annotations.json')
+
         if not os.path.exists(metadata_path):
-            table.add_row(str(idx), f"Missing metadata.json", "", "", "", "", "", "")
+            table.add_row(str(idx), f"Missing run_metadata.json", "", "", "", "", "", "", "")
             continue
 
         with open(metadata_path, 'r') as f:
             metadata = json.load(f)
 
-        # Extract relevant information
         completed = 'Yes' if metadata['run_status'].get('completed') else 'No'
 
         num_images = str(metadata['dataset'].get('num_images', 'Unknown'))
@@ -80,14 +83,14 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
             resize_dims_str = str(resize_dims)
 
         interpolation = str(metadata['run_parameters'].get('interpolation', 'None'))
+        
+        bbox_padding = str(metadata['run_parameters'].get('bbox_pad_px', 'None'))
 
-        # Extract any errors
         errors = str(metadata['run_status'].get('errors', 'None'))
 
         # Truncate run UUID to save table space
         run_uuid_prefix = os.path.basename(run_dir).split('_')[-1][:8] if not custom_output_dir else "CustomDir"
 
-        # Add row to the table
         table.add_row(
             str(idx),
             run_uuid_prefix,
@@ -96,6 +99,7 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
             resize_dims_str,
             resize_mode,
             interpolation,
+            bbox_padding,
             errors
         )
 

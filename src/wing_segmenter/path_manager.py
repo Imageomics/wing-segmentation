@@ -22,8 +22,14 @@ def setup_paths(segmenter):
 
     os.makedirs(segmenter.output_dir, exist_ok=True)
 
-    # Metadata file path
-    segmenter.metadata_path = os.path.join(segmenter.output_dir, 'metadata.json')
+    # Metadata directory
+    segmenter.metadata_dir = os.path.join(segmenter.output_dir, 'metadata')
+    os.makedirs(segmenter.metadata_dir, exist_ok=True)
+
+    # Metadata file paths
+    segmenter.metadata_json_path = os.path.join(segmenter.metadata_dir, 'run_metadata.json')
+    segmenter.detection_csv_path = os.path.join(segmenter.metadata_dir, 'detection.csv')
+    segmenter.coco_annotations_path = os.path.join(segmenter.metadata_dir, 'coco_annotations.json')
 
     # Define subdirectories that are always present
     segmenter.masks_dir = os.path.join(segmenter.output_dir, 'masks')
@@ -44,12 +50,12 @@ def setup_paths(segmenter):
         segmenter.crops_dir = os.path.join(segmenter.output_dir, 'crops')
         os.makedirs(segmenter.crops_dir, exist_ok=True)
 
-    if segmenter.remove_background:
+    if segmenter.remove_crops_background:
         segmenter.crops_bkgd_removed_dir = os.path.join(segmenter.output_dir, 'crops_bkgd_removed')
         os.makedirs(segmenter.crops_bkgd_removed_dir, exist_ok=True)
 
-    if segmenter.remove_bg_full:
+    if segmenter.remove_full_background:
         segmenter.full_bkgd_removed_dir = os.path.join(segmenter.output_dir, 'full_bkgd_removed')
         os.makedirs(segmenter.full_bkgd_removed_dir, exist_ok=True)
 
-    segmenter.mask_csv = os.path.join(segmenter.output_dir, 'segmentation.csv')
+    segmenter.detection_csv = segmenter.detection_csv_path

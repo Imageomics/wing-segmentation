@@ -3,6 +3,9 @@ import hashlib
 import json
 import os
 from wing_segmenter.constants import CLASSES
+import pycocotools.mask as mask_util
+import numpy as np
+import logging
 
 NAMESPACE_UUID = uuid.UUID('00000000-0000-0000-0000-000000000000')
 
@@ -77,14 +80,121 @@ def update_segmentation_info(segmentation_info, image_path, classes_present):
     
     segmentation_info.append(entry)
 
-def save_segmentation_info(segmentation_info, mask_csv):
+def save_segmentation_info(segmentation_info, detection_csv_path):
     """
     Saves the segmentation information to a CSV file.
-    
+
     Parameters:
     - segmentation_info (list): The segmentation information.
-    - mask_csv (str): Path to the CSV file.
+    - detection_csv_path (str): Path to the CSV file.
     """
     import pandas as pd
+    if not segmentation_info:
+        logging.warning(f"No segmentation information to save at '{detection_csv_path}'.")
+        return
     df = pd.DataFrame(segmentation_info)
-    df.to_csv(mask_csv, index=False)
+    df.to_csv(detection_csv_path, index=False)
+    logging.info(f"Saved detection information to '{detection_csv_path}'.")
+
+def add_coco_image_info(coco_annotations_path, relative_path, image_shape):
+    """
+    Adds image information to the COCO annotations file.
+
+    Parameters:
+    - coco_annotations_path (str): Path to the coco_annotations.json file.
+    - relative_path (str): Relative path to the image.
+    - image_shape (tuple): Shape of the image (height, width, channels).
+
+    Returns:
+    - int: The image_id assigned to this image.
+    """
+    height, width = image_shape[:2]
+    images = []
+    image_id = None
+
+    # Load existing annotations or initialize
+    if os.path.exists(coco_annotations_path):
+        with open(coco_annotations_path, 'r') as f:
+            coco = json.load(f)
+    else:
+        coco = {
+            "images": [],
+            "annotations": [],
+            "categories": []
+        }
+        # Initialize categories
+        for class_id, class_name in CLASSES.items():
+            if class_id == 0:
+                continue  # Skip background
+            coco['categories'].append({
+                "id": class_id,
+                "name": class_name,
+                "supercategory": "none"
+            })
+
+    # Check if image already exists
+    for img in coco['images']:
+        if img['file_name'] == relative_path:
+            image_id = img['id']
+            break
+
+    if image_id is None:
+        image_id = len(coco['images']) + 1
+        coco['images'].append({
+            "id": image_id,
+            "file_name": relative_path,
+            "height": height,
+            "width": width
+        })
+
+    # Save back
+    with open(coco_annotations_path, 'w') as f:
+        json.dump(coco, f, indent=4)
+
+    return image_id
+
+def add_coco_annotation(coco_annotations_path, image_id, category_id, bbox, mask):
+    """
+    Adds an annotation to the COCO annotations file.
+
+    Parameters:
+    - coco_annotations_path (str): Path to the coco_annotations.json file.
+    - image_id (int): ID of the image.
+    - category_id (int): ID of the category.
+    - bbox (list): Bounding box [x1, y1, x2, y2].
+    - mask (np.array): Binary mask for the annotation.
+    """
+    if not os.path.exists(coco_annotations_path):
+        raise FileNotFoundError(f"COCO annotations file '{coco_annotations_path}' does not exist.")
+
+    with open(coco_annotations_path, 'r') as f:
+        coco = json.load(f)
+
+    annotation_id = len(coco['annotations']) + 1
+
+    # Convert bbox from [x1, y1, x2, y2] to [x, y, width, height]
+    x, y, x2, y2 = bbox
+    width = x2 - x
+    height = y2 - y
+    bbox_coco = [x, y, width, height]
+
+    # Encode mask to RLE; TODO: make polygon optional
+    rle = mask_util.encode(np.asfortranarray(mask))
+    rle['counts'] = rle['counts'].decode('utf-8')  # Convert bytes to string
+
+    annotation = {
+        "id": annotation_id,
+        "image_id": image_id,
+        "category_id": category_id,
+        "bbox": bbox_coco,
+        "area": width * height,
+        "segmentation": rle,
+        "iscrowd": 0
+    }
+
+    coco['annotations'].append(annotation)
+
+    with open(coco_annotations_path, 'w') as f:
+        json.dump(coco, f, indent=4)
+    
+    logging.debug(f"Added COCO annotation ID {annotation_id} for image ID {image_id}.")

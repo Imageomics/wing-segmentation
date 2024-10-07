@@ -5,7 +5,7 @@ import time
 from tqdm import tqdm
 
 from wing_segmenter.model_manager import load_models
-from wing_segmenter.image_processor import process_image
+from wing_segmenter.image_processor import process_image, get_class_color_map
 from wing_segmenter.path_manager import setup_paths
 from wing_segmenter.metadata_manager import generate_uuid, get_dataset_hash, get_run_hardware_info
 from wing_segmenter import __version__ as package_version
@@ -25,15 +25,17 @@ class Segmenter:
         self.visualize_segmentation = config.visualize_segmentation
         self.force = config.force
         self.crop_by_class = config.crop_by_class
-        self.remove_background = config.remove_background
-        self.remove_bg_full = config.remove_bg_full
-        if self.remove_background or self.remove_bg_full:
+        self.remove_crops_background = config.remove_crops_background
+        self.remove_full_background = config.remove_full_background
+        if self.remove_crops_background or self.remove_full_background:
             self.background_color = config.background_color if config.background_color else 'black'
         else:
             self.background_color = None
         self.segmentation_info = []
         self.output_base_dir = os.path.abspath(config.outputs_base_dir) if config.outputs_base_dir else None
         self.custom_output_dir = os.path.abspath(config.custom_output_dir) if config.custom_output_dir else None
+        self.bbox_padding = config.bbox_padding if config.bbox_padding is not None else 0
+        self.class_color_map = get_class_color_map()
 
         # Generate UUID based on parameters
         self.run_uuid = generate_uuid({
@@ -42,6 +44,8 @@ class Segmenter:
             'yolo_model_name': self.config.yolo_model,
             'resize_mode': self.resize_mode,
             'size': self.size,
+            'interpolation': self.interpolation if self.size else None,
+            'bbox_padding': self.bbox_padding,
         })
 
         setup_paths(self)
@@ -63,8 +67,8 @@ class Segmenter:
             return True
 
         # Check for existing run unless force is specified
-        if os.path.exists(self.metadata_path) and not self.force:
-            with open(self.metadata_path, 'r') as f:
+        if os.path.exists(self.metadata_json_path) and not self.force:
+            with open(self.metadata_json_path, 'r') as f:
                 existing_metadata = json.load(f)
             if existing_metadata.get('run_status', {}).get('completed'):
                 logging.info(f"Processing already completed for dataset '{self.dataset_path}' with the specified parameters.")
@@ -81,12 +85,13 @@ class Segmenter:
                 'yolo_model_name': self.config.yolo_model,
                 'resize_mode': self.resize_mode,
                 'size': self.size,
-                'padding_color': self.padding_color if self.resize_mode == 'pad' else None,
+                'bbox_pad_px': self.bbox_padding,
+                'resize_padding_color': self.padding_color if self.resize_mode == 'pad' else None,
                 'interpolation': self.interpolation if self.size else None,
                 'visualize_segmentation': self.visualize_segmentation,
                 'crop_by_class': self.crop_by_class,
-                'remove_background': self.remove_background,
-                'remove_bg_full': self.remove_bg_full,
+                'remove_crops_background': self.remove_crops_background,
+                'remove_full_background': self.remove_full_background,
                 'background_color': self.background_color
             },
             'run_hardware': get_run_hardware_info(self.device),
@@ -97,8 +102,12 @@ class Segmenter:
                 'errors': None
             }
         }
-        with open(self.metadata_path, 'w') as f:
+        with open(self.metadata_json_path, 'w') as f:
             json.dump(self.metadata, f, indent=4)
+
+        # Log output directory information
+        logging.info(f"Processing {len(image_paths)} images")
+        logging.info(f"Output directory: {self.output_dir}")
 
         try:
             for image_path in tqdm(image_paths, desc='Processing Images', unit='image'):
@@ -112,7 +121,7 @@ class Segmenter:
             logging.error(f"Processing failed: {e}")
             self.metadata['run_status']['completed'] = False
             self.metadata['run_status']['errors'] = str(e)
-            with open(self.metadata_path, 'w') as f:
+            with open(self.metadata_json_path, 'w') as f:
                 json.dump(self.metadata, f, indent=4)
             raise e
 
@@ -120,12 +129,12 @@ class Segmenter:
         self.metadata['run_status']['completed'] = not errors_occurred
         self.metadata['run_status']['processing_time_seconds'] = processing_time
 
-        # Save segmentation info and CSV
+        # Save detection info and CSV
         if self.segmentation_info:
             from wing_segmenter.metadata_manager import save_segmentation_info
-            save_segmentation_info(self.segmentation_info, self.mask_csv)
+            save_segmentation_info(self.segmentation_info, self.detection_csv_path)
 
-        with open(self.metadata_path, 'w') as f:
+        with open(self.metadata_json_path, 'w') as f:
             json.dump(self.metadata, f, indent=4)
 
         if errors_occurred:

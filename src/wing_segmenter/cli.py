@@ -30,7 +30,7 @@ def main():
     resize_group.add_argument('--resize-mode', choices=['distort', 'pad'], default=None,
                               help='Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary.')
 
-    # Padding options
+    # Padding options (to preserve aspect ratio)
     resize_group.add_argument('--padding-color', choices=['black', 'white'], default=None,
                               help='Padding color to use when --resize-mode is "pad".')
 
@@ -38,6 +38,11 @@ def main():
     resize_group.add_argument('--interpolation', choices=['nearest', 'linear', 'cubic', 'area', 'lanczos4', 'linear_exact', 'nearest_exact'],
                               default='area',
                               help='Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.')
+
+    # Bounding box padding option
+    bbox_group = segment_parser.add_argument_group('Bounding Box Options')
+    bbox_group.add_argument('--bbox-padding', type=int, default=None,
+                            help='Padding to add to bounding boxes in pixels. Defaults to no padding.')
 
 
     # Output options within mutually exclusive group
@@ -54,19 +59,19 @@ def main():
                                 help='Device to use for processing.')
     segment_parser.add_argument('--visualize-segmentation', action='store_true',
                                 help='Generate and save segmentation visualizations.')
-    segment_parser.add_argument('--force', action='store_true',
-                                help='Force reprocessing even if outputs already exist.')
     segment_parser.add_argument('--crop-by-class', action='store_true',
                                 help='Enable cropping of segmented classes into crops/ directory.')
+    segment_parser.add_argument('--force', action='store_true',
+                                help='Force reprocessing even if outputs already exist.')
 
     # Background removal options
     bg_group = segment_parser.add_argument_group('Background Removal Options')
-    bg_group.add_argument('--remove-background', action='store_true',
+    bg_group.add_argument('--remove-crops-background', action='store_true',
                            help='Remove background from cropped images.')
-    bg_group.add_argument('--background-color', choices=['white', 'black'], default=None,
-                           help='Background color to use when removing background. Applicable only if --remove-background is set.')
-    bg_group.add_argument('--remove-bg-full', action='store_true',
+    bg_group.add_argument('--remove-full-background', action='store_true',
                            help='Remove background from the entire (resized or original) image.')
+    bg_group.add_argument('--background-color', choices=['white', 'black'], default=None,
+                           help='Background color to use when removing background.')
 
     # Subcommand: scan-runs
     scan_parser = subparsers.add_parser('scan-runs', help='List existing processing runs for a dataset.')
@@ -76,7 +81,7 @@ def main():
     # Parse arguments
     args = parser.parse_args()
 
-    # Validation for resizing options
+    # Command input validations
     if args.command == 'segment':
         # If size is provided, enforce resizing options
         if args.size:
@@ -91,13 +96,21 @@ def main():
             if args.padding_color is not None:
                 parser.error('Resizing options (--padding-color) require --size to be specified.')
 
-        # Only --remove-background requires --crop-by-class
-        if args.remove_background and not args.crop_by_class:
-            parser.error('--remove-background requires --crop-by-class to be set.')
+        # --remove-crops-background requires --crop-by-class
+        if args.remove_crops_background and not args.crop_by_class:
+            parser.error('--remove-crops-background requires --crop-by-class to be set.')
+
+        # Need to set croped or full background removal to set background color
+        if args.background_color and not (args.remove_crops_background or args.remove_full_background):
+            parser.error('--background-color can only be set when background removal is enabled.')
 
         # Ensure that if --custom-output-dir is set, --outputs-base-dir is not used
         if args.custom_output_dir and args.outputs_base_dir:
             parser.error('Cannot specify both --outputs-base-dir and --custom-output-dir. Choose one.')
+
+        # Validate bbox-padding
+        if args.bbox_padding is not None and args.bbox_padding < 0:
+            parser.error('--bbox-padding must be a non-negative integer.')
 
     # Execute the subcommand
     if args.command == 'segment':
