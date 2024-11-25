@@ -158,13 +158,13 @@ python3 wing-segmentation/landmark_scripts/create_wing_folders.py --input_dir /p
 ```
 
 **Flip images**
-```
+```console
 python3 wing-segmentation/landmark_scripts/flip_images_horizontally.py --input_dir /path/to/wing/category/folder
 ```
 
 # CLI Development
 
-```bash
+```console
 usage: wingseg [-h] {segment,scan-runs} ...
 
 Wing Segmenter CLI
@@ -178,7 +178,7 @@ Commands:
     scan-runs          List existing processing runs for a dataset.
 ```
 ## Segmentation Options
-```bash
+```console
 usage: wingseg segment [-h] --dataset DATASET [--size SIZE [SIZE ...]] [--resize-mode {distort,pad}] [--padding-color {black,white}]
                        [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}] [--bbox-padding BBOX_PADDING]
                        [--outputs-base-dir OUTPUTS_BASE_DIR | --custom-output-dir CUSTOM_OUTPUT_DIR] [--sam-model SAM_MODEL] [--yolo-model YOLO_MODEL]
@@ -228,7 +228,7 @@ Background Removal Options:
 ```
 
 Tabular overview of segmentation runs for comparing effects of segmentation option settings:
-```bash
+```console
 usage: wingseg scan-runs [-h] --dataset DATASET [--output-dir OUTPUT_DIR]
 
 options:
@@ -239,7 +239,7 @@ options:
 ```
 
 Example usage:
-```bash
+```console
 wingseg segment --dataset ../data/input/ \
 --outputs-base-dir ../data/output/ \
 --visualize-segmentation \
@@ -253,7 +253,7 @@ wingseg segment --dataset ../data/input/ \
 --background-color white
 ```
 Depending on the contents of `../data/input/`, the command above will produce the following status indicator:
-```bash
+```console
 INFO:root:Loading YOLO model: imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt
 INFO:root:YOLO model loaded onto cpu
 INFO:root:Loading SAM model: facebook/sam-vit-base
@@ -267,7 +267,7 @@ Note that the unique identifier appended to the output directory is a UUID that 
 For example, it may be useful to compare the effects of resize dimensions with squares of size [256, 512, 1024].
 
 Once these are processed, you can use the `scan-runs` command for a tabular overview of the segmentation runs:
-```bash
+```console
 wingseg scan-runs --dataset ../data/input/ --output-dir ../data/output/
 Found 3 processing runs for dataset 'input':
 
@@ -285,7 +285,7 @@ Found 3 processing runs for dataset 'input':
 ```
 
 This can be helpful navigating the outputs of multiple segmentation runs:
-```bash
+```console
 $ ls -1 ../data/output/*
 ../data/output/input_0f27d745-12ce-50b9-a28c-5641dbfaea49:
 crops
@@ -322,13 +322,13 @@ Inspecting data in the `seg_viz/`, we can see that the 1024x1024 products have s
 To use and continue building the CLI features:
 
 ## Set up an environment and install the package.
-```bash
+```console
 conda create -n ws -c conda-forge --solver=libmamba python=3.10 uv -y
 ```
-```bash
+```console
 conda activate ws
 ```
-```bash
+```console
 uv pip install -e .[dev]
 ```
 > Note: [`uv`](https://github.com/astral-sh/uv) is a fast, Rust-based package manager.
