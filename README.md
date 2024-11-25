@@ -165,36 +165,159 @@ python3 wing-segmentation/landmark_scripts/flip_images_horizontally.py --input_d
 # CLI Development
 
 ```bash
-usage: ws [-h] {resize} ...
+usage: wingseg [-h] {segment,scan-runs} ...
 
 Wing Segmenter CLI
 
 options:
-  -h, --help  show this help message and exit
+  -h, --help           show this help message and exit
 
 Commands:
-  {resize}
-    resize    Resize images and store them in a structured output directory.
+  {segment,scan-runs}
+    segment            Segment images and store segmentation masks.
+    scan-runs          List existing processing runs for a dataset.
 ```
-## Optional preprocessing
+## Segmentation Options
 ```bash
-usage: ws resize [-h] --source SOURCE [--output OUTPUT] --resize-dim WIDTH HEIGHT [--num-workers NUM_WORKERS]
-                 [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}]
+usage: wingseg segment [-h] --dataset DATASET [--size SIZE [SIZE ...]] [--resize-mode {distort,pad}] [--padding-color {black,white}]
+                       [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}] [--bbox-padding BBOX_PADDING]
+                       [--outputs-base-dir OUTPUTS_BASE_DIR | --custom-output-dir CUSTOM_OUTPUT_DIR] [--sam-model SAM_MODEL] [--yolo-model YOLO_MODEL]
+                       [--device {cpu,cuda}] [--visualize-segmentation] [--crop-by-class] [--force] [--remove-crops-background] [--remove-full-background]
+                       [--background-color {white,black}]
 
 options:
   -h, --help            show this help message and exit
-  --source SOURCE       Path to source images
-  --output OUTPUT       Base path to output resized images.
-                        Final path will include <WIDTH>x<HEIGHT>/<INTERPOLATION>.
-                        Default: <SOURCE>_resize/<WIDTH>x<HEIGHT>/<INTERPOLATION>, neighboring SOURCE.
-                        If SOURCE has nested directories, the output will mirror the structure.
-  --resize-dim WIDTH HEIGHT
-                        Resize dimensions (WIDTH HEIGHT)
-  --num-workers NUM_WORKERS
-                        Number of parallel workers (default: 1)
+  --dataset DATASET     Path to dataset images (default: None)
+  --outputs-base-dir OUTPUTS_BASE_DIR
+                        Base path to store outputs. (default: None)
+  --custom-output-dir CUSTOM_OUTPUT_DIR
+                        Fully custom directory to store all output files. (default: None)
+  --sam-model SAM_MODEL
+                        SAM model to use (e.g., facebook/sam-vit-base) (default: facebook/sam-vit-base)
+  --yolo-model YOLO_MODEL
+                        YOLO model to use (local path or Hugging Face repo). (default:
+                        imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt)
+  --device {cpu,cuda}   Device to use for processing. (default: cpu)
+  --visualize-segmentation
+                        Generate and save segmentation visualizations. (default: False)
+  --crop-by-class       Enable cropping of segmented classes into crops/ directory. (default: False)
+  --force               Force reprocessing even if outputs already exist. (default: False)
+
+Resizing Options:
+  --size SIZE [SIZE ...]
+                        Target size. Provide one value for square dimensions or two for width and height. (default: None)
+  --resize-mode {distort,pad}
+                        Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary.
+                        (default: None)
+  --padding-color {black,white}
+                        Padding color to use when --resize-mode is "pad". (default: None)
   --interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}
-                        OpenCV interpolation method to use (default: area)
+                        Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended. (default: area)
+
+Bounding Box Options:
+  --bbox-padding BBOX_PADDING
+                        Padding to add to bounding boxes in pixels. Defaults to no padding. (default: None)
+
+Background Removal Options:
+  --remove-crops-background
+                        Remove background from cropped images. (default: False)
+  --remove-full-background
+                        Remove background from the entire (resized or original) image. (default: False)
+  --background-color {white,black}
+                        Background color to use when removing background. (default: None)
 ```
+
+Tabular overview of segmentation runs for comparing effects of segmentation option settings:
+```bash
+usage: wingseg scan-runs [-h] --dataset DATASET [--output-dir OUTPUT_DIR]
+
+options:
+  -h, --help            show this help message and exit
+  --dataset DATASET     Path to the dataset directory.
+  --output-dir OUTPUT_DIR
+                        Base path where outputs were stored.
+```
+
+Example usage:
+```bash
+wingseg segment --dataset ../data/input/ \
+--outputs-base-dir ../data/output/ \
+--visualize-segmentation \
+--crop-by-class \
+--size 512 \
+--resize-mode pad \
+--padding-color white \
+--interpolation cubic \
+--remove-crops-background \
+--remove-full-background \
+--background-color white
+```
+Depending on the contents of `../data/input/`, the command above will produce the following status indicator:
+```bash
+INFO:root:Loading YOLO model: imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt
+INFO:root:YOLO model loaded onto cpu
+INFO:root:Loading SAM model: facebook/sam-vit-base
+INFO:root:Loaded SAM model and processor successfully.
+INFO:root:Processing 18 images
+INFO:root:Output directory: /abs/path/to/data/output/input_3354acb9-b295-5d07-9397-8ec5c74cee37
+Processing Images:   6%|█████▌                                                                                               | 1/18 [00:14<04:09, 14.67s/image]
+```
+Note that the unique identifier appended to the output directory is a UUID that depends on certain options specified in the command as well as the input dataset. This is to ensure that the output directory is unique and does not overwrite existing results.
+
+For example, it may be useful to compare the effects of resize dimensions with squares of size [256, 512, 1024].
+
+Once these are processed, you can use the `scan-runs` command for a tabular overview of the segmentation runs:
+```bash
+wingseg scan-runs --dataset ../data/input/ --output-dir ../data/output/
+Found 3 processing runs for dataset 'input':
+
+                                             Processing Runs                                             
+┏━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┓
+┃       ┃ Run UUID ┃           ┃            ┃             ┃ Resize  ┃               ┃          ┃        ┃
+┃ Run # ┃ Prefix   ┃ Completed ┃ Num Images ┃ Resize Dims ┃  Mode   ┃    Interp     ┃ BBox Pad ┃ Errors ┃
+┡━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━┩
+│     1 │ 3354acb9 │    Yes    │         18 │   512x512   │   pad   │     cubic     │        0 │  None  │
+├───────┼──────────┼───────────┼────────────┼─────────────┼─────────┼───────────────┼──────────┼────────┤
+│     2 │ 0f27d745 │    Yes    │         18 │   256x256   │   pad   │     cubic     │        0 │  None  │
+├───────┼──────────┼───────────┼────────────┼─────────────┼─────────┼───────────────┼──────────┼────────┤
+│     3 │ 8e9ae0a2 │    Yes    │         18 │  1024x1024  │   pad   │     cubic     │        0 │  None  │
+└───────┴──────────┴───────────┴────────────┴─────────────┴─────────┴───────────────┴──────────┴────────┘
+```
+
+This can be helpful navigating the outputs of multiple segmentation runs:
+```bash
+$ ls -1 ../data/output/*
+../data/output/input_0f27d745-12ce-50b9-a28c-5641dbfaea49:
+crops
+crops_bkgd_removed
+full_bkgd_removed
+logs
+masks
+metadata
+resized
+seg_viz
+
+../data/output/input_3354acb9-b295-5d07-9397-8ec5c74cee37:
+<similarly>
+
+../data/output/input_8e9ae0a2-992c-579d-bb51-b8715442bcf4:
+<similarly>
+```
+
+Inspecting data in the `seg_viz/`, we can see that the 1024x1024 products have segmentation masks that differ from the 512x512 and 256x256 products.
+
+1024x1024 (Run 8e9ae0a2):
+
+![1024 resize segmentation result visualization](readme_images/STRI_WOM_0011_V_viz_1024.png)
+
+512x512 (Run 3354acb9):
+
+![512 resize segmentation result visualization](readme_images/STRI_WOM_0011_V_viz_512.png)
+
+256x256 (Run 0f27d745):
+
+![256 resize segmentation result visualization](readme_images/STRI_WOM_0011_V_viz_256.png)
+
 
 To use and continue building the CLI features:
 
