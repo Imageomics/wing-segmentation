@@ -318,6 +318,8 @@ Inspecting data in the `seg_viz/`, we can see that the 1024x1024 products have s
 
 ![256 resize segmentation result visualization](readme_images/STRI_WOM_0011_V_viz_256.png)
 
+A potential fix for this could be to add padding to the bounding boxes (with the `--bbox-padding` option) wherever results are inconsistent with expectations.
+
 
 To use and continue building the CLI features:
 
