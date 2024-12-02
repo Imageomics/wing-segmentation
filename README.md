@@ -321,17 +321,25 @@ Inspecting data in the `seg_viz/`, we can see that the 1024x1024 products have s
 A potential fix for this could be to add padding to the bounding boxes (with the `--bbox-padding` option) wherever results are inconsistent with expectations.
 
 
-To use and continue building the CLI features:
+## Further Development
+To use and continue building the CLI features, set up and activate a virtual environment, and build interactively with `pip install -e .[dev]`.
 
-## Set up an environment and install the package.
+> [!TIP] 
+> [`uv`](https://github.com/astral-sh/uv) is a fast, Rust-based package manager.
+> If using on an HPC system, you may install `uv` into your user path or a conda environment (latter illustrated here).
+
 ```console
-conda create -n ws -c conda-forge --solver=libmamba python=3.10 uv -y
+conda create -n uv -c conda-forge --solver=libmamba python=3.10 uv -y
 ```
 ```console
-conda activate ws
+conda activate uv
+```
+```console
+uv venv
+```
+```console
+source .venv/bin/activate # or source .venv/Scripts/activate on Windows
 ```
 ```console
 uv pip install -e .[dev]
 ```
-> Note: [`uv`](https://github.com/astral-sh/uv) is a fast, Rust-based package manager.
-
