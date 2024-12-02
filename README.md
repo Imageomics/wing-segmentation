@@ -162,7 +162,12 @@ python3 wing-segmentation/landmark_scripts/create_wing_folders.py --input_dir /p
 python3 wing-segmentation/landmark_scripts/flip_images_horizontally.py --input_dir /path/to/wing/category/folder
 ```
 
-# CLI Development
+# CLI Help
+
+> [!CAUTION]
+> The CLI is still under development and may not be fully functional. Please add an [issue](https://github.com/Imageomics/wing-segmentation/issues) for any bugs or feature requests.
+
+The wing segmentation CLI tool is designed for convenient and flexible segmentation of butterfly images.
 
 ```console
 usage: wingseg [-h] {segment,scan-runs} ...
@@ -177,7 +182,10 @@ Commands:
     segment            Segment images and store segmentation masks.
     scan-runs          List existing processing runs for a dataset.
 ```
-## Segmentation Options
+## Options for `wingseg segment`
+
+This command segments images and stores segmentation masks with a variety of options for resizing, padding, background removal, and more.
+
 ```console
 usage: wingseg segment [-h] --dataset DATASET [--size SIZE [SIZE ...]] [--resize-mode {distort,pad}] [--padding-color {black,white}]
                        [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}] [--bbox-padding BBOX_PADDING]
@@ -227,7 +235,10 @@ Background Removal Options:
                         Background color to use when removing background. (default: None)
 ```
 
-Tabular overview of segmentation runs for comparing effects of segmentation option settings:
+## Options for `wingseg scan-runs`
+
+This command provides a tabular overview of segmentation runs for comparing effects of segmentation option settings:
+
 ```console
 usage: wingseg scan-runs [-h] --dataset DATASET [--output-dir OUTPUT_DIR]
 
