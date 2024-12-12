@@ -104,10 +104,6 @@ def main():
         if args.background_color and not (args.remove_crops_background or args.remove_full_background):
             parser.error('--background-color can only be set when background removal is enabled.')
 
-        # Ensure that if --custom-output-dir is set, --outputs-base-dir is not used
-        if args.custom_output_dir and args.outputs_base_dir:
-            parser.error('Cannot specify both --outputs-base-dir and --custom-output-dir. Choose one.')
-
         # Validate bbox-padding
         if args.bbox_padding is not None and args.bbox_padding < 0:
             parser.error('--bbox-padding must be a non-negative integer.')
