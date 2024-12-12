@@ -333,24 +333,7 @@ A potential fix for this could be to add padding to the bounding boxes (with the
 
 
 ## Further Development
-To use and continue building the CLI features, set up and activate a virtual environment, and build interactively with `pip install -e .[dev]`.
-
-> [!TIP] 
-> [`uv`](https://github.com/astral-sh/uv) is a fast, Rust-based package manager.
-> If using on an HPC system, you may install `uv` into your user path or a conda environment (latter illustrated here).
-
-```console
-conda create -n uv -c conda-forge --solver=libmamba python=3.10 uv -y
+To use and continue building the CLI features, set up and activate a virtual environment, and build interactively with 
 ```
-```console
-conda activate uv
-```
-```console
-uv venv
-```
-```console
-source .venv/bin/activate # or source .venv/Scripts/activate on Windows
-```
-```console
-uv pip install -e .[dev]
+pip install -e .[dev]
 ```
