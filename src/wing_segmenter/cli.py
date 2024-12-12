@@ -28,7 +28,7 @@ def main():
 
     # Resizing mode
     resize_group.add_argument('--resize-mode', choices=['distort', 'pad'], default=None,
-                              help='Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary.')
+                              help='Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary. Required with --size.')
 
     # Padding options (to preserve aspect ratio)
     resize_group.add_argument('--padding-color', choices=['black', 'white'], default=None,
