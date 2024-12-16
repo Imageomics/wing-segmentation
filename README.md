@@ -181,6 +181,7 @@ Commands:
   {segment,scan-runs}
     segment            Segment images and store segmentation masks.
     scan-runs          List existing processing runs for a dataset.
+                       Requires outputs to have been generated with the --outputs-base-dir option.
 ```
 ## Options for `wingseg segment`
 
@@ -189,50 +190,51 @@ This command segments images and stores segmentation masks with a variety of opt
 ```console
 usage: wingseg segment [-h] --dataset DATASET [--size SIZE [SIZE ...]] [--resize-mode {distort,pad}] [--padding-color {black,white}]
                        [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}] [--bbox-padding BBOX_PADDING]
-                       [--outputs-base-dir OUTPUTS_BASE_DIR | --custom-output-dir CUSTOM_OUTPUT_DIR] [--sam-model SAM_MODEL] [--yolo-model YOLO_MODEL]
-                       [--device {cpu,cuda}] [--visualize-segmentation] [--crop-by-class] [--force] [--remove-crops-background] [--remove-full-background]
-                       [--background-color {white,black}]
+                       [--outputs-base-dir OUTPUTS_BASE_DIR | --custom-output-dir CUSTOM_OUTPUT_DIR] [--sam-model SAM_MODEL]
+                       [--yolo-model YOLO_MODEL] [--device {cpu,cuda}] [--visualize-segmentation] [--crop-by-class] [--force]
+                       [--remove-crops-background] [--remove-full-background] [--background-color {white,black}]
 
 options:
   -h, --help            show this help message and exit
-  --dataset DATASET     Path to dataset images (default: None)
+  --dataset DATASET     Path to dataset images
   --outputs-base-dir OUTPUTS_BASE_DIR
-                        Base path to store outputs. (default: None)
+                        Base path to store outputs under an auto-generated directory, useful for testing and managing multiple runs.
+                        Compatible with the scan-runs command.
   --custom-output-dir CUSTOM_OUTPUT_DIR
-                        Fully custom directory to store all output files. (default: None)
+                        Fully custom directory to store all output files for a single run.
+                        Not compatible with the scan-runs command.
   --sam-model SAM_MODEL
-                        SAM model to use (e.g., facebook/sam-vit-base) (default: facebook/sam-vit-base)
+                        SAM model to use (e.g., facebook/sam-vit-base)
   --yolo-model YOLO_MODEL
-                        YOLO model to use (local path or Hugging Face repo). (default:
-                        imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt)
-  --device {cpu,cuda}   Device to use for processing. (default: cpu)
+                        YOLO model to use (local path or Hugging Face repo).
+  --device {cpu,cuda}   Device to use for processing.
   --visualize-segmentation
-                        Generate and save segmentation visualizations. (default: False)
-  --crop-by-class       Enable cropping of segmented classes into crops/ directory. (default: False)
-  --force               Force reprocessing even if outputs already exist. (default: False)
+                        Generate and save segmentation visualizations.
+  --crop-by-class       Enable cropping of segmented classes into crops/ directory.
+  --force               Force reprocessing even if outputs already exist.
 
 Resizing Options:
   --size SIZE [SIZE ...]
-                        Target size. Provide one value for square dimensions or two for width and height. (default: None)
+                        Target size. Provide one value for square dimensions or two for width and height.
   --resize-mode {distort,pad}
-                        Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary. Required with --size.
-                        (default: None)
+                        Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary. 
+                        Required with --size.
   --padding-color {black,white}
-                        Padding color to use when --resize-mode is "pad". (default: None)
+                        Padding color to use when --resize-mode is "pad".
   --interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}
-                        Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended. (default: area)
+                        Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.
 
 Bounding Box Options:
   --bbox-padding BBOX_PADDING
-                        Padding to add to bounding boxes in pixels. Defaults to no padding. (default: None)
+                        Padding to add to bounding boxes in pixels. Defaults to no padding.
 
 Background Removal Options:
   --remove-crops-background
-                        Remove background from cropped images. (default: False)
+                        Remove background from cropped images.
   --remove-full-background
-                        Remove background from the entire (resized or original) image. (default: False)
+                        Remove background from the entire (resized or original) image.
   --background-color {white,black}
-                        Background color to use when removing background. (default: None)
+                        Background color to use when removing background.
 ```
 
 ## Options for `wingseg scan-runs`

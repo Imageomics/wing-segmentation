@@ -36,7 +36,7 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
         elif output_base_dir:
             console.print(f"[red]No processing runs found in '{output_dir}' for dataset '{dataset_name}'.[/red]")
         else:
-            console.print(f"[red]No processing runs found for dataset '{dataset_name}' in default location ('{output_dir}'). If you saved results in a custom location, please use the `--custom-output-dir` flag for the `scan-runs` command.[/red]")
+            console.print(f"[red]No processing runs found for dataset '{dataset_name}' in default location ('{output_dir}').[/red]")
         return
 
     console.print(f"[bold green]Found {len(run_dirs)} processing runs for dataset '{dataset_name}':[/bold green]\n")

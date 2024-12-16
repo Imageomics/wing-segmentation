@@ -1,10 +1,11 @@
 import argparse
+from argparse import RawTextHelpFormatter
 
 def main():
     parser = argparse.ArgumentParser(
         prog='wingseg',
         description="Wing Segmenter CLI",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=RawTextHelpFormatter
     )
 
     subparsers = parser.add_subparsers(title='Commands', dest='command', required=True)
@@ -13,7 +14,7 @@ def main():
     segment_parser = subparsers.add_parser(
         'segment',
         help='Segment images and store segmentation masks.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=RawTextHelpFormatter
     )
 
     # Required argument
@@ -28,7 +29,8 @@ def main():
 
     # Resizing mode
     resize_group.add_argument('--resize-mode', choices=['distort', 'pad'], default=None,
-                              help='Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary. Required with --size.')
+                              help='''Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary. 
+Required with --size.''')
 
     # Padding options (to preserve aspect ratio)
     resize_group.add_argument('--padding-color', choices=['black', 'white'], default=None,
@@ -44,11 +46,14 @@ def main():
     bbox_group.add_argument('--bbox-padding', type=int, default=None,
                             help='Padding to add to bounding boxes in pixels. Defaults to no padding.')
 
-
     # Output options within mutually exclusive group
     output_group = segment_parser.add_mutually_exclusive_group()
-    output_group.add_argument('--outputs-base-dir', default=None, help='Base path to store outputs.')
-    output_group.add_argument('--custom-output-dir', default=None, help='Fully custom directory to store all output files.')
+    output_group.add_argument('--outputs-base-dir', default=None, 
+        help='''Base path to store outputs under an auto-generated directory, useful for testing and managing multiple runs.
+Compatible with the scan-runs command.''')
+    output_group.add_argument('--custom-output-dir', default=None, 
+        help='''Fully custom directory to store all output files for a single run.
+Not compatible with the scan-runs command.''')
 
     # General processing options
     segment_parser.add_argument('--sam-model', default='facebook/sam-vit-base',
@@ -72,11 +77,15 @@ def main():
                            help='Remove background from the entire (resized or original) image.')
     bg_group.add_argument('--background-color', choices=['white', 'black'], default=None,
                            help='Background color to use when removing background.')
-
+    
     # Subcommand: scan-runs
-    scan_parser = subparsers.add_parser('scan-runs', help='List existing processing runs for a dataset.')
+    scan_parser = subparsers.add_parser(
+        'scan-runs', 
+        help='''List existing processing runs for a dataset.
+Requires outputs to have been generated with the --outputs-base-dir option.'''
+    )
     scan_parser.add_argument('--dataset', required=True, help='Path to the dataset directory.')
-    scan_parser.add_argument('--output-dir', default=None, help='Base path where outputs were stored.')
+    scan_parser.add_argument('--outputs-base-dir', default=None, help='Base path where outputs were stored.')
 
     # Parse arguments
     args = parser.parse_args()
@@ -118,4 +127,4 @@ def main():
     elif args.command == 'scan-runs':
         from wing_segmenter.run_scanner import scan_runs
 
-        scan_runs(dataset_path=args.dataset, output_base_dir=args.output_dir)
+        scan_runs(dataset_path=args.dataset, output_base_dir=args.outputs_base_dir)
