@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from PIL import Image
 import time
 from tqdm import tqdm
 
@@ -51,16 +52,27 @@ class Segmenter:
         setup_paths(self)
         self.yolo_model, self.sam_model, self.sam_processor = load_models(self.config, self.device)
 
+    def is_valid_image(file_path):
+        """
+        Returns True if the file at file_path can be opened and verified as an image.
+        """
+        try:
+            with Image.open(file_path) as img:
+                img.verify()
+            return True
+        except Exception:
+            return False
+
     def process_dataset(self):
         start_time = time.time()
         errors_occurred = False
 
         image_paths = []
-        valid_extensions = ('.jpg', '.jpeg', '.png', '.tif', '.tiff', '.bmp')
         for root, _, files in os.walk(self.dataset_path):
             for file in files:
-                if file.lower().endswith(valid_extensions):
-                    image_paths.append(os.path.join(root, file))
+                full_path = os.path.join(root, file)
+                if is_valid_image(full_path):
+                    image_paths.append(full_path)
 
         if not image_paths:
             logging.error("No images found in the dataset.")
