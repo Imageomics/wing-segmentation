@@ -52,6 +52,7 @@ class Segmenter:
         setup_paths(self)
         self.yolo_model, self.sam_model, self.sam_processor = load_models(self.config, self.device)
 
+    @staticmethod
     def is_valid_image(file_path):
         """
         Returns True if the file at file_path can be opened and verified as an image.
@@ -71,7 +72,7 @@ class Segmenter:
         for root, _, files in os.walk(self.dataset_path):
             for file in files:
                 full_path = os.path.join(root, file)
-                if is_valid_image(full_path):
+                if self.is_valid_image(full_path):
                     image_paths.append(full_path)
 
         if not image_paths:

@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import logging
+from pathlib import Path
 import torch
 from wing_segmenter.constants import CLASSES
 from wing_segmenter.exceptions import ImageProcessingError
@@ -71,10 +72,14 @@ def process_image(segmenter, image_path):
                 segmenter.interpolation
             )
             logging.debug(f"Resized image dimensions: {working_image.shape}")
+
             # Save resized image
-            save_path = os.path.join(segmenter.resized_dir, relative_path)
+            base = Path(relative_path).with_suffix("") 
+            save_path = os.path.join(segmenter.resized_dir, str(base) + ".png")
+
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             cv2.imwrite(save_path, working_image)
+
             logging.debug(f"Resized image saved to '{save_path}'.")
         else:
             working_image = image  # no resizing
@@ -149,7 +154,7 @@ def process_image(segmenter, image_path):
                 logging.debug(f"Mask dimensions: {mask.shape}")
 
                 # Save mask (preserving directory structure)
-                mask_filename = f"{os.path.splitext(os.path.basename(relative_path))[0]}_cls{class_id}.png"
+                mask_filename = f"{Path(relative_path).stem}_cls{class_id}.png"
                 mask_save_path = os.path.join(segmenter.masks_dir, relative_dir, mask_filename)
                 os.makedirs(os.path.dirname(mask_save_path), exist_ok=True)
                 cv2.imwrite(mask_save_path, mask)
@@ -238,7 +243,7 @@ def process_image(segmenter, image_path):
 
         # Save the visualization image (preserving directory structure)
         if segmenter.visualize_segmentation:
-            viz_filename = f"{os.path.splitext(os.path.basename(relative_path))[0]}_viz.png"
+            viz_filename = f"{Path(relative_path).stem}_viz.png"
             viz_save_path = os.path.join(segmenter.viz_dir, relative_dir, viz_filename)
             os.makedirs(os.path.dirname(viz_save_path), exist_ok=True)
             cv2.imwrite(viz_save_path, viz_image)
@@ -251,9 +256,12 @@ def process_image(segmenter, image_path):
                 full_image_bg_removed = remove_background(working_image, foreground_mask, segmenter.background_color)
 
                 # Prepare save path for full background removal
-                full_image_bg_removed_save_path = os.path.join(segmenter.full_bkgd_removed_dir, relative_path)
+                base = Path(relative_path).with_suffix("")
+                full_image_bg_removed_save_path = os.path.join(segmenter.full_bkgd_removed_dir, str(base) + ".png")
+
                 os.makedirs(os.path.dirname(full_image_bg_removed_save_path), exist_ok=True)
                 cv2.imwrite(full_image_bg_removed_save_path, full_image_bg_removed)
+
                 logging.debug(f"Full background removed image saved to '{full_image_bg_removed_save_path}'.")
             else:
                 logging.warning(f"No foreground detected for image: {image_path}. Full background removal skipped.")
@@ -412,7 +420,7 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path, class_name, cl
         cropped_mask = class_mask[y:y+h, x:x+w]
 
         # Prepare filenames and paths (preserving directory structure)
-        crop_filename = f"{os.path.splitext(os.path.basename(relative_path))[0]}_cls{class_id}.png"
+        crop_filename = f"{Path(relative_path).stem}_cls{class_id}.png"
         crop_save_path = os.path.join(segmenter.crops_dir, relative_dir, crop_filename)
         os.makedirs(os.path.dirname(crop_save_path), exist_ok=True)
 
@@ -424,7 +432,7 @@ def crop_and_save_by_class(segmenter, image, mask, relative_path, class_name, cl
         if segmenter.remove_crops_background:
             logging.debug(f"Starting background removal for cropped image '{crop_save_path}'.")
             cropped_image_bg_removed = remove_background(cropped_image, cropped_mask, segmenter.background_color)
-            crop_bg_removed_filename = f"{os.path.splitext(os.path.basename(relative_path))[0]}_cls{class_id}_bg_removed.png"
+            crop_bg_removed_filename = f"{Path(relative_path).stem}_cls{class_id}_bg_removed.png"
             crop_bg_removed_save_path = os.path.join(segmenter.crops_bkgd_removed_dir, relative_dir, crop_bg_removed_filename)
             os.makedirs(os.path.dirname(crop_bg_removed_save_path), exist_ok=True)
 
