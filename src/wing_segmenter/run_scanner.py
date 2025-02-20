@@ -55,11 +55,9 @@ def scan_runs(dataset_path, output_base_dir=None, custom_output_dir=None):
 
     for idx, run_dir in enumerate(run_dirs, 1):
         metadata_path = os.path.join(run_dir, 'metadata', 'run_metadata.json')
-        detection_csv_path = os.path.join(run_dir, 'metadata', 'detection.csv')
-        coco_annotations_path = os.path.join(run_dir, 'metadata', 'coco_annotations.json')
 
         if not os.path.exists(metadata_path):
-            table.add_row(str(idx), f"Missing run_metadata.json", "", "", "", "", "", "", "")
+            table.add_row(str(idx), "Missing run_metadata.json", "", "", "", "", "", "", "")
             continue
 
         with open(metadata_path, 'r') as f:

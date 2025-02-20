@@ -109,7 +109,6 @@ def add_coco_image_info(coco_annotations_path, relative_path, image_shape):
     - int: The image_id assigned to this image.
     """
     height, width = image_shape[:2]
-    images = []
     image_id = None
 
     # Load existing annotations or initialize

@@ -13,7 +13,6 @@ from wing_segmenter.metadata_manager import (
     add_coco_image_info
 )
 
-import matplotlib.pyplot as plt
 from matplotlib import cm
 
 def get_class_color_map():
@@ -135,7 +134,6 @@ def process_image(segmenter, image_path):
             class_name = CLASSES.get(class_id, 'unknown')
 
             bbox = box.cpu().numpy().tolist()  # [x1, y1, x2, y2]
-            completed = 'Yes' if confidence > 0.5 else 'No'  # Seems to be a good threshold in testing
 
             logging.debug(f"Processing class '{class_name}' with confidence {confidence} and bounding box {bbox}")
 

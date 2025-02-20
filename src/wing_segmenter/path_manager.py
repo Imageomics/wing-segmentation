@@ -1,5 +1,4 @@
 import os
-from wing_segmenter.constants import CLASSES
 
 def setup_paths(segmenter):
     """
