@@ -165,9 +165,21 @@ python3 wing-segmentation/landmark_scripts/flip_images_horizontally.py --input_d
 # CLI Help
 
 > [!CAUTION]
-> The CLI is still under development and may not be fully functional. Please add an [issue](https://github.com/Imageomics/wing-segmentation/issues) for any bugs or feature requests.
+> The CLI is still under development. Please add an [issue](https://github.com/Imageomics/wing-segmentation/issues) for bug reports or feature requests.
 
 The wing segmentation CLI tool is designed for convenient and flexible segmentation of butterfly images.
+
+## Installation
+In a virtual environment, you can install with:
+```console
+pip install git+https://github.com/Imageomics/wing-segmentation.git
+```
+If you would like a specific version of the package (e.g. `v0.1.0`), you can install with:
+```console
+pip install git+https://github.com/Imageomics/wing-segmentation.git@v0.1.0
+```
+
+## Usage
 
 ```console
 usage: wingseg [-h] {segment,scan-runs} ...
@@ -180,90 +192,116 @@ options:
 Commands:
   {segment,scan-runs}
     segment            Segment images and store segmentation masks.
-    scan-runs          List existing processing runs for a dataset.
+    scan-runs          List existing processing runs for a dataset. 
                        Requires outputs to have been generated with the --outputs-base-dir option.
 ```
-## Options for `wingseg segment`
+### Options for `wingseg segment`
 
 This command segments images and stores segmentation masks with a variety of options for resizing, padding, background removal, and more.
 
 ```console
 usage: wingseg segment [-h] --dataset DATASET [--size SIZE [SIZE ...]] [--resize-mode {distort,pad}] [--padding-color {black,white}]
                        [--interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}] [--bbox-padding BBOX_PADDING]
-                       [--outputs-base-dir OUTPUTS_BASE_DIR | --custom-output-dir CUSTOM_OUTPUT_DIR] [--sam-model SAM_MODEL]
-                       [--yolo-model YOLO_MODEL] [--device {cpu,cuda}] [--visualize-segmentation] [--crop-by-class] [--force]
-                       [--remove-crops-background] [--remove-full-background] [--background-color {white,black}]
+                       [--outputs-base-dir OUTPUTS_BASE_DIR | --custom-output-dir CUSTOM_OUTPUT_DIR] [--sam-model SAM_MODEL] [--yolo-model YOLO_MODEL]
+                       [--device {cpu,cuda}] [--visualize-segmentation] [--crop-by-class] [--force] [--remove-crops-background]
+                       [--remove-full-background] [--background-color {white,black}]
+
+Segment images and store segmentation masks.
 
 options:
   -h, --help            show this help message and exit
-  --dataset DATASET     Path to dataset images
+  --dataset DATASET     Path to dataset images.
+                        (default: None)
   --outputs-base-dir OUTPUTS_BASE_DIR
                         Base path to store outputs under an auto-generated directory, useful for testing and managing multiple runs.
                         Compatible with the scan-runs command.
+                        (default: None)
   --custom-output-dir CUSTOM_OUTPUT_DIR
                         Fully custom directory to store all output files for a single run.
                         Not compatible with the scan-runs command.
+                        (default: None)
   --sam-model SAM_MODEL
-                        SAM model to use (e.g., facebook/sam-vit-base)
+                        SAM model to use (e.g., facebook/sam-vit-base).
+                        (default: facebook/sam-vit-base)
   --yolo-model YOLO_MODEL
-                        YOLO model to use (local path or Hugging Face repo).
+                        YOLO model to use (local path or Hugging Face repo). 
+                        (default: imageomics/butterfly_segmentation_yolo_v8:yolov8m_shear_10.0_scale_0.5_translate_0.1_fliplr_0.0_best.pt)
   --device {cpu,cuda}   Device to use for processing.
+                        (default: cpu)
   --visualize-segmentation
                         Generate and save segmentation visualizations.
+                        (default: False)
   --crop-by-class       Enable cropping of segmented classes into crops/ directory.
+                        (default: False)
   --force               Force reprocessing even if outputs already exist.
+                        (default: False)
 
 Resizing Options:
   --size SIZE [SIZE ...]
-                        Target size. Provide one value for square dimensions or two for width and height.
+                        Target size. Provide one value for square dimensions or two for width and height. 
+                        (default: None)
   --resize-mode {distort,pad}
                         Resizing mode. "distort" resizes without preserving aspect ratio, "pad" preserves aspect ratio and adds padding if necessary. 
-                        Required with --size.
+                        Required with --size. 
+                        (default: None)
   --padding-color {black,white}
                         Padding color to use when --resize-mode is "pad".
+                        (default: None)
   --interpolation {nearest,linear,cubic,area,lanczos4,linear_exact,nearest_exact}
                         Interpolation method to use when resizing. For upscaling, "lanczos4" is recommended.
+                        (default: area)
 
 Bounding Box Options:
   --bbox-padding BBOX_PADDING
                         Padding to add to bounding boxes in pixels. Defaults to no padding.
+                        (default: None)
 
 Background Removal Options:
   --remove-crops-background
                         Remove background from cropped images.
+                        (default: False)
   --remove-full-background
                         Remove background from the entire (resized or original) image.
+                        (default: False)
   --background-color {white,black}
                         Background color to use when removing background.
+                        (default: None)
 ```
 
-## Options for `wingseg scan-runs`
+### Options for `wingseg scan-runs`
 
 This command provides a tabular overview of segmentation runs for comparing effects of segmentation option settings:
 
 ```console
-usage: wingseg scan-runs [-h] --dataset DATASET [--output-dir OUTPUT_DIR]
+usage: wingseg scan-runs [-h] --dataset DATASET [--outputs-base-dir OUTPUTS_BASE_DIR]
+
+List existing processing runs for a dataset. 
+Requires outputs to have been generated with the --outputs-base-dir option.
 
 options:
   -h, --help            show this help message and exit
-  --dataset DATASET     Path to the dataset directory.
-  --output-dir OUTPUT_DIR
+  --dataset DATASET     Path to the dataset directory
+                        (default: None)
+  --outputs-base-dir OUTPUTS_BASE_DIR
                         Base path where outputs were stored.
+                        (default: None)
 ```
 
-Example usage:
+### Example Usage
+
+For instance, if you have a dataset of images in `../data/input/`, and you would like segmented outputs stored under `../data/output/` you can segment these images with the following command:
 ```console
 wingseg segment --dataset ../data/input/ \
---outputs-base-dir ../data/output/ \
---visualize-segmentation \
---crop-by-class \
---size 512 \
---resize-mode pad \
---padding-color white \
---interpolation cubic \
---remove-crops-background \
---remove-full-background \
---background-color white
+  --outputs-base-dir ../data/output/ \
+  --visualize-segmentation \
+  --crop-by-class \
+  --size 512 \
+  --resize-mode pad \
+  --padding-color white \
+  --interpolation cubic \
+  --remove-crops-background \
+  --remove-full-background \
+  --background-color white
 ```
 Depending on the contents of `../data/input/`, the command above will produce the following status indicator:
 ```console
@@ -281,7 +319,8 @@ For example, it may be useful to compare the effects of resize dimensions with s
 
 Once these are processed, you can use the `scan-runs` command for a tabular overview of the segmentation runs:
 ```console
-wingseg scan-runs --dataset ../data/input/ --output-dir ../data/output/
+wingseg scan-runs --dataset ../data/input/ \
+  --outputs-base-dir ../data/output/
 Found 3 processing runs for dataset 'input':
 
                                              Processing Runs                                             
@@ -333,10 +372,12 @@ Inspecting data in the `seg_viz/`, we can see that the 1024x1024 products have s
 
 A potential fix for this could be to add padding to the bounding boxes (with the `--bbox-padding` option) wherever results are inconsistent with expectations.
 
+Once you are satisfied with the outputs, you can use the `wingseg segment` command with the `--custom-output-dir` option specified to store all output files for a single run in a custom directory.
 
 ## Further Development
-To use and continue building the CLI features, set up and activate a virtual environment, and build interactively with 
-```
+
+For developers contributing to the CLI, clone the repository, set up and activate a virtual environment, then install in editable mode with development dependencies:
+```console
 pip install -e .[dev]
 ```
 
