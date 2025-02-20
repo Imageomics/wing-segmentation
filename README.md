@@ -383,4 +383,4 @@ pip install -e .[dev]
 
 # Acknowledgements
 Example images used in this README are from:
-- Christopher Lawrence, Owen McMillan, Daniel Romero, Carlos Arias. (2023). Smithsonian Tropical Research Institute (STRI) Samples. Hugging Face. https://huggingface.co/datasets/imageomics/STRI-Samples.
+- Christopher Lawrence, Owen McMillan, Daniel Romero, Carlos Arias. (2024). Smithsonian Tropical Research Institute (STRI) Samples. Hugging Face. https://huggingface.co/datasets/imageomics/STRI-Samples.
