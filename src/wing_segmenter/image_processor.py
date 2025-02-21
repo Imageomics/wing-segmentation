@@ -133,7 +133,9 @@ def process_image(segmenter, image_path):
             confidence = detection['confidence']
             class_name = CLASSES.get(class_id, 'unknown')
 
-            bbox = box.cpu().numpy().tolist()  # [x1, y1, x2, y2]
+            # Put box on CPU before converting to NumPy
+            box = box.cpu() if hasattr(box, 'cpu') else box
+            bbox = box.numpy().tolist() if hasattr(box, 'numpy') else box  # Convert to numpy and list
 
             logging.debug(f"Processing class '{class_name}' with confidence {confidence} and bounding box {bbox}")
 
@@ -294,18 +296,21 @@ def get_mask_SAM(result, image, processor, model, device, box):
         images=[image],
         input_boxes=[[bbox]],
         return_tensors="pt"
-    ).to(device)
+    )
+    
+    # Move inputs to the device where the model is
+    inputs = {k: v.to(device) for k, v in inputs.items()}
 
     try:
         with torch.no_grad():
             outputs = model(**inputs)
-
-        # Resize masks to original image size
+        
+        # Move outputs to CPU before NumPy conversion
         masks = processor.post_process_masks(
             outputs.pred_masks.cpu(),
             inputs["original_sizes"].cpu(),
             inputs["reshaped_input_sizes"].cpu()
-        )[0].cpu().numpy()  # Ensure masks are NumPy arrays
+        )[0].numpy()  # Directly use numpy() as tensors are already on CPU
 
         logging.debug(f"Shape of masks after post_process_masks: {masks.shape}")
 

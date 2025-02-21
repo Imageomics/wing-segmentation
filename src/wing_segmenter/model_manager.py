@@ -2,6 +2,7 @@ import logging
 import torch
 import subprocess
 import re
+import os
 from ultralytics import YOLO
 from transformers import SamModel, SamProcessor
 from huggingface_hub import hf_hub_download
@@ -49,17 +50,18 @@ def get_gpu_with_lowest_memory(min_required_memory_mb=1024):
 def get_yolo_model(model_name, device):
     logging.info(f"Loading YOLO model: {model_name}")
     try:
+        # Determine device to use
         if device == 'cuda':
             gpu_id = get_gpu_with_lowest_memory(min_required_memory_mb=10000)
             if gpu_id is not None:
                 logging.info(f"Using GPU {gpu_id} with the most free memory.")
                 torch.cuda.set_device(gpu_id)
-                map_location = f"cuda:{gpu_id}"
+                device_spec = f"cuda:{gpu_id}"
             else:
                 logging.warning("Could not find a suitable GPU. Using the default GPU.")
-                map_location = "cuda"
+                device_spec = "cuda"
         else:
-            map_location = device
+            device_spec = 'cpu'
 
         # Load the YOLO model from Hugging Face or a local path
         if ':' in model_name:
@@ -70,8 +72,11 @@ def get_yolo_model(model_name, device):
 
         # Use the YOLO class to load the model from the path
         model = YOLO(model_path)
+        
+        # Explicitly move model to the specified device
+        model.to(device_spec)
 
-        logging.info(f"YOLO model loaded onto {map_location}")
+        logging.info(f"YOLO model loaded onto {device_spec}")
 
     except Exception as e:
         logging.error(f"Failed to load YOLO model '{model_name}': {e}")
@@ -93,12 +98,26 @@ def get_sam_model_and_processor(sam_model_name, device):
     """
     logging.info(f"Loading SAM model: {sam_model_name}")
     try:
-        sam_model = SamModel.from_pretrained(sam_model_name).to(device)
+        # For SAM model use device_map
+        if device.startswith('cuda'):
+            device_map = device
+        else:
+            device_map = 'cpu'
+        
+        # Load model with explicit device map
+        sam_model = SamModel.from_pretrained(
+            sam_model_name, 
+            device_map=device_map
+        )
+        
+        # Load processor
         sam_processor = SamProcessor.from_pretrained(sam_model_name)
-        logging.info("Loaded SAM model and processor successfully.")
+        
+        logging.info(f"Loaded SAM model and processor successfully on {device}.")
     except Exception as e:
         logging.error(f"Failed to load SAM model '{sam_model_name}': {e}")
         raise ModelLoadError(f"Failed to load SAM model '{sam_model_name}': {e}")
+    
     return sam_model, sam_processor
 
 def load_models(config, device):

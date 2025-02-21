@@ -17,6 +17,7 @@ license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "accelerate>=0.26.0",
     "torch",
     "torchvision",
     "numpy",
