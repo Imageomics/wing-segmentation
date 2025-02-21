@@ -63,7 +63,7 @@ Required with --size.
     bbox_group.add_argument('--bbox-padding', 
         type=int, 
         default=None,
-        help='''Padding to add to bounding boxes in pixels. Defaults to no padding.
+        help='''Padding to add to bounding boxes in pixels.
 (default: %(default)s)''')
 
     # Output options within mutually exclusive group
