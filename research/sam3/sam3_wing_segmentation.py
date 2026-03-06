@@ -26,14 +26,14 @@ def _():
     )
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(mo):
     mo.md(r"""
     # SAM3 Butterfly Wing Segmentation
 
     This notebook tests SAM3 (facebook/sam3) via the HuggingFace Transformers library for the butterfly wing segmentation.
 
-    Covers:
+    Includes:
     1. Loading and running SAM3 on a single image
     2. Batch processing multiple calibrated images
     3. Heuristic-free detection using prompts
@@ -137,24 +137,17 @@ def _(
     torch,
 ):
     def run_sam3_yolo_classes(img, proc, mdl, dev):
-        # These are the exact classes from the YOLO detection module
         yolo_classes = [
-            "right forewing",
-            "left forewing", 
-            "right hindwing",
-            "left hindwing",
-            "ruler",
-            "metadata label",
-            "color palette"
+            "right_forewing", "left_forewing", "right_hindwing", "left_hindwing",
+            "ruler", "white_balance", "label", "color_card", "body"
         ]
-        colors = ["cyan", "red", "purple", "yellow", "white", "orange", "green"]
+        colors = ["cyan", "red", "purple", "yellow", "white", "orange", "green", "pink", "blue"]
     
         result = img.copy()
         draw = ImageDraw.Draw(result)
     
         for prompt, color in zip(yolo_classes, colors):
             inputs = proc(img, text=[prompt], return_tensors="pt").to(dev)
-        
             with torch.no_grad():
                 outputs = mdl(**inputs)
         
@@ -184,8 +177,78 @@ def _(
     
         return result
 
-    result_yolo_classes = run_sam3_yolo_classes(image, processor, model, device)
-    mo.image(result_yolo_classes)
+    result_no_heuristics = run_sam3_yolo_classes(image, processor, model, device)
+    mo.image(result_no_heuristics)
+    return
+
+
+@app.cell
+def _(
+    Image,
+    ImageDraw,
+    binary_erosion,
+    device,
+    mo,
+    model,
+    np,
+    processor,
+    torch,
+):
+    def set_testing(image_paths, proc, mdl, dev):
+        yolo_classes = [
+            "right_forewing", "left_forewing", "right_hindwing", "left_hindwing",
+            "ruler", "white_balance", "label", "color_card", "body"
+        ]
+        colors = ["cyan", "red", "purple", "yellow", "white", "orange", "green", "pink", "blue"]
+    
+        results = []
+        for path in image_paths:
+            img = Image.open(path).convert("RGB")
+            result = img.copy()
+            draw = ImageDraw.Draw(result)
+        
+            for prompt, color in zip(yolo_classes, colors):
+                inputs = proc(img, text=[prompt], return_tensors="pt").to(dev)
+                with torch.no_grad():
+                    outputs = mdl(**inputs)
+            
+                logits = outputs.pred_logits[0]
+                scores = torch.sigmoid(logits)
+                best_idx = scores.argmax()
+                best_score = scores[best_idx].item()
+            
+                if best_score < 0.5:
+                    continue
+            
+                mask = outputs.pred_masks[0][best_idx].numpy()
+                img_w, img_h = img.size
+                mask_img = Image.fromarray((mask > 0).astype(np.uint8) * 255)
+                mask_img = mask_img.resize((img_w, img_h), Image.NEAREST)
+                mask_arr = np.array(mask_img) > 0
+            
+                eroded = binary_erosion(binary_erosion(binary_erosion(mask_arr)))
+                outline = mask_arr & ~eroded
+                ys, xs = np.where(outline)
+                for y, x in zip(ys, xs):
+                    draw.point((x, y), fill=color)
+                cy, cx = int(np.mean(ys)), int(np.mean(xs))
+                draw.text((cx, cy), f"{prompt} ({best_score:.2f})", fill=color)
+        
+            results.append((path.split("/")[-1], result))
+        return results
+
+    batch_paths = [
+        "/Users/sahasra/sam3_research/52_SAG_D_calibrated.jpg",
+        "/Users/sahasra/sam3_research/193_BG_D_calibrated.jpg",
+        "/Users/sahasra/sam3_research/378_BAR_D_calibrated.jpg"
+    ]
+
+    batch_results = set_testing(batch_paths, processor, model, device)
+
+    mo.vstack([
+        mo.vstack([mo.md(f"**{name}**"), mo.image(img)])
+        for name, img in batch_results
+    ])
     return
 
 
