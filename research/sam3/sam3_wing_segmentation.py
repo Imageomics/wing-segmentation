@@ -9,7 +9,7 @@ def _():
     import marimo as mo
     import torch
     import numpy as np
-    from PIL import Image, ImageDraw
+    from PIL import Image, ImageDraw, ImageFont
     from transformers import Sam3Processor, Sam3Model
     from scipy.ndimage import binary_erosion
     import os
@@ -17,6 +17,7 @@ def _():
     return (
         Image,
         ImageDraw,
+        ImageFont,
         Sam3Model,
         Sam3Processor,
         binary_erosion,
@@ -35,8 +36,8 @@ def _(mo):
 
     Includes:
     1. Loading and running SAM3 on a single image
-    2. Batch processing multiple calibrated images
-    3. Heuristic-free detection using prompts
+    2. Batch detecttion and processing of multiple calibrated images using zero shot approach
+    3. Heuristic-free detection using YOLO prompts
     """)
     return
 
@@ -107,14 +108,14 @@ def _(
         mask_img = Image.fromarray((mask > 0).astype(np.uint8) * 255)
         mask_img = mask_img.resize((img_w, img_h), Image.NEAREST)
         mask_arr = np.array(mask_img) > 0
-    
+
         # Thicker outline using multiple erosions
         eroded = binary_erosion(binary_erosion(binary_erosion(mask_arr)))
         outline = mask_arr & ~eroded
         ys, xs = np.where(outline)
         for y, x in zip(ys, xs):
             draw.point((x, y), fill=color)
-    
+
         # Add label at center of mask
         cy, cx = int(np.mean(ys)), int(np.mean(xs))
         draw.text((cx, cy), f"{label} ({score:.2f})", fill=color)
@@ -127,6 +128,7 @@ def _(
 def _(
     Image,
     ImageDraw,
+    ImageFont,
     binary_erosion,
     device,
     image,
@@ -142,6 +144,7 @@ def _(
             "ruler", "white_balance", "label", "color_card", "body"
         ]
         colors = ["cyan", "red", "purple", "yellow", "white", "orange", "green", "pink", "blue"]
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 40)
     
         result = img.copy()
         draw = ImageDraw.Draw(result)
@@ -173,7 +176,7 @@ def _(
             for y, x in zip(ys, xs):
                 draw.point((x, y), fill=color)
             cy, cx = int(np.mean(ys)), int(np.mean(xs))
-            draw.text((cx, cy), f"{prompt} ({best_score:.2f})", fill=color)
+            draw.text((cx, cy), f"{prompt} ({best_score:.2f})", fill=color, font=font)
     
         return result
 
@@ -194,12 +197,14 @@ def _(
     processor,
     torch,
 ):
-    def set_testing(image_paths, proc, mdl, dev):
+    def set_images_detection(image_paths, proc, mdl, dev):
+        from PIL import ImageFont
         yolo_classes = [
             "right_forewing", "left_forewing", "right_hindwing", "left_hindwing",
             "ruler", "white_balance", "label", "color_card", "body"
         ]
         colors = ["cyan", "red", "purple", "yellow", "white", "orange", "green", "pink", "blue"]
+        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 40)
     
         results = []
         for path in image_paths:
@@ -232,7 +237,7 @@ def _(
                 for y, x in zip(ys, xs):
                     draw.point((x, y), fill=color)
                 cy, cx = int(np.mean(ys)), int(np.mean(xs))
-                draw.text((cx, cy), f"{prompt} ({best_score:.2f})", fill=color)
+                draw.text((cx, cy), f"{prompt} ({best_score:.2f})", fill=color, font=font)
         
             results.append((path.split("/")[-1], result))
         return results
@@ -243,7 +248,7 @@ def _(
         "/Users/sahasra/sam3_research/378_BAR_D_calibrated.jpg"
     ]
 
-    batch_results = set_testing(batch_paths, processor, model, device)
+    batch_results = set_images_detection(batch_paths, processor, model, device)
 
     mo.vstack([
         mo.vstack([mo.md(f"**{name}**"), mo.image(img)])
